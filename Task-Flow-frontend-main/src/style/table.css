@@ -1,0 +1,39 @@
+/* Clean modern styles for legacy table imports */
+.page {
+  width: 100%;
+  padding: 0 4px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.form {
+  background: var(--ui-surface);
+  padding: 20px;
+  margin-bottom: 24px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ui-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.form input,
+.form select {
+  padding: 8px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-sm);
+  background: var(--ui-surface);
+  color: var(--text-main);
+  outline: none;
+  font-size: 13.5px;
+  transition: all 0.2s ease;
+}
+
+.form input:focus,
+.form select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}

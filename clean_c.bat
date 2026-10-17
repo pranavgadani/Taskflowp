@@ -1,0 +1,9 @@
+@echo off
+echo Cleaning temporary files...
+del /q /s /f "%TEMP%\*" 2>nul
+del /q /s /f "C:\Windows\Temp\*" 2>nul
+echo Cleaning npm cache...
+call npm cache clean --force
+echo Cleaning npm logs...
+del /q /s /f "C:\Users\Admin\AppData\Local\npm-cache\_logs\*" 2>nul
+echo Done cleaning.
