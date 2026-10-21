@@ -24,6 +24,7 @@ export default function Timesheet() {
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   // Filters for review tab
   const [filterProject, setFilterProject] = useState("");
@@ -79,24 +80,18 @@ export default function Timesheet() {
       if (data.length > 0) {
         setDailyEntries(data.map(item => ({ ...item, isSaved: true })));
       } else {
-        // Provide 1 initial blank Excel row for quick entry
-        const defProj = myAssignedProjects[0] || projects[0];
-        const projId = defProj?._id || defProj?.id || "";
-        const projTasks = tasks.filter(t => (t.project?._id || t.project?.id || t.project)?.toString() === projId?.toString());
-        const defTask = projTasks[0];
-        const defSub = defTask?.subtasks?.[0];
-
+        // Provide 1 initial blank Excel row with empty selections so employee enters manually
         setDailyEntries([{
           id: `temp_${Date.now()}`,
-          hours: "8.00",
-          project_id: projId,
-          project_name: defProj?.name || "",
-          task_id: (defTask?._id || defTask?.id)?.toString() || "",
-          task_title: defTask?.title || "",
-          subtask_id: (defSub?._id || defSub?.id)?.toString() || "",
-          subtask_title: defSub?.title || "",
+          hours: "",
+          project_id: "",
+          project_name: "",
+          task_id: "",
+          task_title: "",
+          subtask_id: "",
+          subtask_title: "",
           description: "",
-          task_status: defSub?.status || "In Process",
+          task_status: "In Process",
           status: "Draft",
           isSaved: false
         }]);
@@ -166,7 +161,7 @@ export default function Timesheet() {
       ...prev,
       {
         id: `temp_${Date.now()}_${Math.random()}`,
-        hours: "4.00",
+        hours: "",
         project_id: projId,
         project_name: defProj?.name || "",
         task_id: (defTask?._id || defTask?.id)?.toString() || "",
@@ -283,18 +278,34 @@ export default function Timesheet() {
 
   // Submit whole day's report for approval
   const handleSubmitDayReport = async () => {
+    if (isSubmittingReport) return;
+
+    if (dailyEntries.length === 0) {
+      showToast("No timesheet entries to submit!", "warning");
+      return;
+    }
+
     const unsaved = dailyEntries.some(r => !r.isSaved || r.id.startsWith("temp_"));
     if (unsaved) {
       showToast("Please save all rows before submitting for approval!", "error");
       return;
     }
 
+    const allSubmittedOrApproved = dailyEntries.every(r => r.status === "Submitted" || r.status === "Approved");
+    if (allSubmittedOrApproved) {
+      showToast("Today's report has already been submitted for approval!", "info");
+      return;
+    }
+
     try {
+      setIsSubmittingReport(true);
       await API.post("/timesheets/submit-day", { date: selectedDate });
       showToast("Daily report submitted to Admin for approval!", "success");
-      fetchDailyTimesheets(selectedDate);
+      await fetchDailyTimesheets(selectedDate);
     } catch (e) {
       showToast(e.response?.data?.error || "Submission failed", "error");
+    } finally {
+      setIsSubmittingReport(false);
     }
   };
 
@@ -369,57 +380,62 @@ export default function Timesheet() {
           </p>
         </div>
 
-        {/* ─── DATE FILTER (Next to Add button as requested) ───────────── */}
+        {/* ─── DATE FILTER (Responsive toolbar with wrap) ───────────── */}
         <div style={{
-          display: "flex", alignItems: "center", gap: "10px", background: "#fff",
-          padding: "6px 14px", borderRadius: "12px", border: "1.5px solid #e2e8f0",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.03)"
+          display: "flex", alignItems: "center", gap: "8px", background: "var(--ui-surface, #fff)",
+          padding: "8px 12px", borderRadius: "12px", border: "1.5px solid var(--ui-border, #e2e8f0)",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.03)", flexWrap: "wrap", maxWidth: "100%"
         }}>
-          <span style={{ fontSize: "12px", fontWeight: "800", color: "#475569", textTransform: "uppercase" }}>
+          <span style={{ fontSize: "11px", fontWeight: "800", color: "var(--text-muted, #475569)", textTransform: "uppercase", whiteSpace: "nowrap" }}>
             Date Filter:
           </span>
 
-          <button
-            onClick={handlePrevDay}
-            style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "6px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-            title="Previous Day"
-          >
-            <ChevronLeftIcon size={12} color="#475569" />
-          </button>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+            <button
+              onClick={handlePrevDay}
+              style={{ background: "var(--ui-bg, #f1f5f9)", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", padding: "6px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              title="Previous Day"
+            >
+              <ChevronLeftIcon size={12} color="var(--text-muted, #475569)" />
+            </button>
 
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            style={{
-              padding: "5px 10px", border: "1px solid #cbd5e1", borderRadius: "6px",
-              fontWeight: "700", fontSize: "13px", color: "#1e293b", outline: "none"
-            }}
-          />
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{
+                padding: "5px 8px", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px",
+                fontWeight: "700", fontSize: "12px", color: "var(--text-main, #1e293b)", outline: "none",
+                background: "var(--ui-surface, #fff)",
+                maxWidth: "135px"
+              }}
+            />
 
-          <button
-            onClick={handleNextDay}
-            style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "6px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-            title="Next Day"
-          >
-            <ChevronRightIcon size={12} color="#475569" />
-          </button>
+            <button
+              onClick={handleNextDay}
+              style={{ background: "var(--ui-bg, #f1f5f9)", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", padding: "6px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              title="Next Day"
+            >
+              <ChevronRightIcon size={12} color="var(--text-muted, #475569)" />
+            </button>
+          </div>
 
           <button
             onClick={handleSetToday}
             style={{
-              background: "#eef2ff", color: "#4f46e5", border: "1px solid #c7d2fe",
-              borderRadius: "6px", padding: "4px 10px", cursor: "pointer", fontWeight: "700", fontSize: "12px"
+              background: "var(--primary-light, #eef2ff)", color: "var(--primary-color, #4f46e5)", border: "1px solid var(--ui-border, #c7d2fe)",
+              borderRadius: "6px", padding: "5px 10px", cursor: "pointer", fontWeight: "700", fontSize: "11px"
             }}
           >
             Today
           </button>
 
           <div style={{
-            background: dayTotalHours >= 8.0 ? "#ecfdf5" : "#fffbeb",
-            color: dayTotalHours >= 8.0 ? "#059669" : "#d97706",
-            border: `1px solid ${dayTotalHours >= 8.0 ? "#a7f3d0" : "#fde68a"}`,
-            padding: "4px 10px", borderRadius: "8px", fontWeight: "800", fontSize: "12px"
+            background: dayTotalHours >= 8.0 ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)",
+            color: dayTotalHours >= 8.0 ? "#10b981" : "#f59e0b",
+            border: `1px solid ${dayTotalHours >= 8.0 ? "rgba(16, 185, 129, 0.3)" : "rgba(245, 158, 11, 0.3)"}`,
+            padding: "5px 9px", borderRadius: "8px", fontWeight: "800", fontSize: "11px",
+            whiteSpace: "nowrap"
           }}>
             Total: {dayTotalHours.toFixed(2)} hrs
           </div>
@@ -428,8 +444,9 @@ export default function Timesheet() {
             onClick={handleAddExcelRow}
             style={{
               background: "linear-gradient(135deg, #4f46e5, #6366f1)",
-              color: "#fff", border: "none", padding: "8px 16px", borderRadius: "8px",
-              fontWeight: "700", fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px"
+              color: "#fff", border: "none", padding: "7px 14px", borderRadius: "8px",
+              fontWeight: "700", fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px",
+              whiteSpace: "nowrap"
             }}
           >
             + Add Row
@@ -438,7 +455,7 @@ export default function Timesheet() {
       </div>
 
       {/* ─── TABS ──────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", gap: "10px", borderBottom: "2px solid #e2e8f0", marginBottom: "20px" }}>
+      <div style={{ display: "flex", gap: "10px", borderBottom: "2px solid #e2e8f0", marginBottom: "20px", overflowX: "auto", WebkitOverflowScrolling: "touch", whiteSpace: "nowrap" }}>
         <button
           onClick={() => setActiveTab("my-excel")}
           style={{
@@ -485,50 +502,111 @@ export default function Timesheet() {
       {activeTab === "my-excel" && (
         <div>
           <div style={{
-            background: "#ffffff", borderRadius: "12px", border: "1.5px solid #cbd5e1",
+            background: "var(--ui-surface, #ffffff)", borderRadius: "12px", border: "1.5px solid var(--ui-border, #cbd5e1)",
             boxShadow: "0 4px 16px rgba(0,0,0,0.04)", overflow: "hidden"
           }}>
             {/* Sheet Banner */}
             <div style={{
-              background: "#f8fafc", padding: "12px 18px", borderBottom: "1px solid #e2e8f0",
+              background: "var(--ui-bg, #f8fafc)", padding: "12px 18px", borderBottom: "1px solid var(--ui-border, #e2e8f0)",
               display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px"
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <span style={{ fontWeight: "800", color: "#1e293b", fontSize: "14px", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                  <SheetIcon size={16} color="#4f46e5" /> Daily Timesheet Entries for {new Date(selectedDate).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                <span style={{ fontWeight: "800", color: "var(--text-main, #1e293b)", fontSize: "14px", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <SheetIcon size={16} color="var(--primary-color, #4f46e5)" /> Daily Timesheet Entries for {new Date(selectedDate).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </span>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>
+                <span style={{ fontSize: "12px", color: "var(--text-muted, #64748b)" }}>
                   (Showing projects assigned to {user?.name})
                 </span>
               </div>
               <div style={{ display: "flex", gap: "10px" }}>
-                <button
-                  type="button"
-                  onClick={handleSubmitDayReport}
-                  style={{
-                    background: "linear-gradient(135deg, #10b981, #059669)",
-                    color: "#fff", border: "none", padding: "7px 18px", borderRadius: "8px",
-                    fontWeight: "800", fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px"
-                  }}
-                >
-                  <CheckIcon size={15} color="#fff" /> Submit Day's Report to Admin for Approval
-                </button>
+                {(() => {
+                  const hasRows = dailyEntries.length > 0 && !dailyEntries.some(r => r.id.startsWith("temp_"));
+                  const isAlreadySubmitted = hasRows && dailyEntries.every(r => r.status === "Submitted" || r.status === "Approved");
+                  const isApproved = hasRows && dailyEntries.every(r => r.status === "Approved");
+
+                  if (isApproved) {
+                    return (
+                      <span
+                        style={{
+                          background: "#ecfdf5",
+                          color: "#059669",
+                          border: "1px solid #a7f3d0",
+                          padding: "7px 18px",
+                          borderRadius: "8px",
+                          fontWeight: "800",
+                          fontSize: "12px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px"
+                        }}
+                      >
+                        <CheckIcon size={15} color="#059669" /> Report Approved by Admin
+                      </span>
+                    );
+                  }
+
+                  if (isAlreadySubmitted) {
+                    return (
+                      <span
+                        style={{
+                          background: "#eff6ff",
+                          color: "#2563eb",
+                          border: "1px solid #bfdbfe",
+                          padding: "7px 18px",
+                          borderRadius: "8px",
+                          fontWeight: "800",
+                          fontSize: "12px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px"
+                        }}
+                      >
+                        <CheckIcon size={15} color="#2563eb" /> Submitted for Approval
+                      </span>
+                    );
+                  }
+
+                  return (
+                    <button
+                      type="button"
+                      disabled={isSubmittingReport}
+                      onClick={handleSubmitDayReport}
+                      style={{
+                        background: isSubmittingReport ? "#94a3b8" : "linear-gradient(135deg, #10b981, #059669)",
+                        color: "#fff",
+                        border: "none",
+                        padding: "7px 18px",
+                        borderRadius: "8px",
+                        fontWeight: "800",
+                        fontSize: "12px",
+                        cursor: isSubmittingReport ? "not-allowed" : "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        opacity: isSubmittingReport ? 0.7 : 1
+                      }}
+                    >
+                      <CheckIcon size={15} color="#fff" />
+                      {isSubmittingReport ? "Submitting..." : "Submit Day's Report to Admin for Approval"}
+                    </button>
+                  );
+                })()}
               </div>
             </div>
 
             {/* Excel Table Grid */}
-            <div style={{ overflowX: "auto", width: "100%" }}>
+            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", width: "100%" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1020px" }}>
                 <thead>
-                  <tr style={{ background: "#f8fafc", textAlign: "left", borderBottom: "1.5px solid #cbd5e1" }}>
-                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "#475569", width: "85px", letterSpacing: "0.5px" }}>1. HOURS</th>
-                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "#475569", width: "170px", letterSpacing: "0.5px" }}>2. PROJECT</th>
-                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "#475569", width: "170px", letterSpacing: "0.5px" }}>3. TASK</th>
-                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "#475569", width: "160px", letterSpacing: "0.5px" }}>4. SUB TASK</th>
-                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "#475569", minWidth: "150px", letterSpacing: "0.5px" }}>5. DESCRIPTION</th>
-                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "#475569", width: "135px", letterSpacing: "0.5px" }}>6. STATUS</th>
-                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "#475569", width: "100px", textAlign: "center", letterSpacing: "0.5px" }}>APPROVAL</th>
-                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "#475569", width: "95px", textAlign: "center", letterSpacing: "0.5px" }}>ACTION</th>
+                  <tr style={{ background: "var(--ui-bg, #f8fafc)", textAlign: "left", borderBottom: "1.5px solid var(--ui-border, #cbd5e1)" }}>
+                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "var(--text-muted, #475569)", width: "85px", letterSpacing: "0.5px" }}>1. HOURS</th>
+                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "var(--text-muted, #475569)", width: "170px", letterSpacing: "0.5px" }}>2. PROJECT</th>
+                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "var(--text-muted, #475569)", width: "170px", letterSpacing: "0.5px" }}>3. TASK</th>
+                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "var(--text-muted, #475569)", width: "160px", letterSpacing: "0.5px" }}>4. SUB TASK</th>
+                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "var(--text-muted, #475569)", minWidth: "150px", letterSpacing: "0.5px" }}>5. DESCRIPTION</th>
+                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "var(--text-muted, #475569)", width: "135px", letterSpacing: "0.5px" }}>6. STATUS</th>
+                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "var(--text-muted, #475569)", width: "100px", textAlign: "center", letterSpacing: "0.5px" }}>APPROVAL</th>
+                    <th style={{ padding: "10px 10px", fontSize: "11.5px", fontWeight: "800", color: "var(--text-muted, #475569)", width: "95px", textAlign: "center", letterSpacing: "0.5px" }}>ACTION</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -543,7 +621,7 @@ export default function Timesheet() {
                     const isLocked = row.status === "Approved";
 
                     return (
-                      <tr key={row.id || idx} style={{ borderBottom: "1px solid #e2e8f0", background: idx % 2 === 0 ? "#ffffff" : "#fcfdfe" }}>
+                      <tr key={row.id || idx} style={{ borderBottom: "1px solid var(--ui-border, #e2e8f0)", background: idx % 2 === 0 ? "var(--ui-surface, #ffffff)" : "var(--ui-bg, #fcfdfe)" }}>
                         {/* 1. Hours */}
                         <td style={{ padding: "8px 10px" }}>
                           <input
@@ -558,7 +636,7 @@ export default function Timesheet() {
                               width: "100%", padding: "7px 8px", border: "1px solid #cbd5e1", borderRadius: "6px",
                               fontWeight: "800", fontSize: "13px", color: "#1e293b", background: isLocked ? "#f1f5f9" : "#fff"
                             }}
-                            placeholder="8.00"
+                            placeholder="0.00"
                           />
                         </td>
 
@@ -696,25 +774,17 @@ export default function Timesheet() {
 
                 {/* Footer Totals */}
                 <tfoot>
-                  <tr style={{ background: "#f8fafc", borderTop: "2px solid #cbd5e1" }}>
-                    <td style={{ padding: "12px 14px", fontWeight: "800", fontSize: "14px", color: "#1e293b" }}>
+                  <tr style={{ background: "var(--ui-bg, #f8fafc)", borderTop: "2px solid var(--ui-border, #cbd5e1)" }}>
+                    <td style={{ padding: "12px 14px", fontWeight: "800", fontSize: "14px", color: "var(--text-main, #1e293b)" }}>
                       {dayTotalHours.toFixed(2)} hrs
                     </td>
-                    <td colSpan="5" style={{ padding: "12px 14px", fontSize: "13px", fontWeight: "700", color: "#64748b" }}>
-                      <span style={{ color: dayTotalHours >= 8.0 ? "#16a34a" : "#d97706", fontWeight: "800", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                        {dayTotalHours >= 8.0 ? (
-                          <>
-                            <CheckIcon size={14} color="#16a34a" /> Full Daily Standard Met (8.00 hrs)
-                          </>
-                        ) : "Partial Day Logged"}
-                      </span>
-                    </td>
+                    <td colSpan="5" style={{ padding: "12px 14px" }}></td>
                     <td colSpan="2" style={{ padding: "12px 14px", textAlign: "right" }}>
                       <button
                         type="button"
                         onClick={handleAddExcelRow}
                         style={{
-                          background: "#eef2ff", color: "#4f46e5", border: "1.5px dashed #c7d2fe",
+                          background: "var(--primary-light, #eef2ff)", color: "var(--primary-color, #4f46e5)", border: "1.5px dashed var(--primary-color, #c7d2fe)",
                           borderRadius: "6px", padding: "6px 14px", fontWeight: "700", fontSize: "12px", cursor: "pointer"
                         }}
                       >
@@ -777,8 +847,8 @@ export default function Timesheet() {
           </div>
 
           <div style={{ background: "#ffffff", borderRadius: "14px", border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
-            <div style={{ overflowX: "auto" }}>
-              <table className="custom-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <table className="custom-table" style={{ width: "100%", minWidth: "900px", borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ background: "#f8fafc", textAlign: "left", borderBottom: "1px solid #e2e8f0" }}>
                     <th style={{ padding: "12px 16px", fontSize: "12px", color: "#475569" }}>EMPLOYEE</th>
@@ -911,11 +981,11 @@ export default function Timesheet() {
           background: "rgba(15, 23, 42, 0.6)", display: "flex", alignItems: "center", justifyContent: "center",
           zIndex: 1000, padding: "20px"
         }}>
-          <div style={{ background: "#fff", borderRadius: "16px", width: "100%", maxWidth: "460px", padding: "24px", boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}>
+          <div style={{ background: "var(--ui-surface, #fff)", border: "1px solid var(--ui-border, #e2e8f0)", borderRadius: "16px", width: "100%", maxWidth: "460px", padding: "24px", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
             <h3 style={{ fontSize: "18px", fontWeight: "800", color: "#ef4444", margin: "0 0 12px 0" }}>
               Reject Timesheet Entry
             </h3>
-            <p style={{ fontSize: "13px", color: "#64748b", marginBottom: "16px" }}>
+            <p style={{ fontSize: "13px", color: "var(--text-muted, #64748b)", marginBottom: "16px" }}>
               Please state why this timesheet cannot be approved (e.g. incorrect hours, insufficient detail).
             </p>
             <textarea
@@ -929,7 +999,7 @@ export default function Timesheet() {
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
               <button
                 onClick={() => setRejectModal({ show: false, id: null, reason: "" })}
-                style={{ padding: "8px 16px", background: "#f1f5f9", border: "none", borderRadius: "8px", fontWeight: "700", cursor: "pointer" }}
+                style={{ padding: "8px 16px", background: "var(--ui-bg, #f1f5f9)", color: "var(--text-main, #334155)", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "8px", fontWeight: "700", cursor: "pointer" }}
               >
                 Cancel
               </button>

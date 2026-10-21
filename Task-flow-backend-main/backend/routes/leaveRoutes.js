@@ -55,7 +55,10 @@ router.get("/admin/balances", authMiddleware, async (req, res) => {
       return res.status(403).json({ error: "Access denied" });
     }
     const [rows] = await pool.query(
-      "SELECT * FROM leave_balances ORDER BY user_name ASC"
+      `SELECT b.* 
+       FROM leave_balances b
+       INNER JOIN staff s ON b.user_id = s.id
+       ORDER BY b.user_name ASC`
     );
     res.json(rows);
   } catch (err) {
@@ -189,10 +192,18 @@ router.post("/apply", authMiddleware, async (req, res) => {
     const userName = req.user.name || "Employee";
     const userEmail = req.user.email || "";
     const { leave_type, from_date, to_date, day_type, reason } = req.body;
+    if (!from_date || !to_date) {
+      return res.status(400).json({ error: "From Date and To Date are required." });
+    }
 
-    // Calculate days excluding weekends
     const start = new Date(from_date);
     const end = new Date(to_date);
+
+    if (end < start) {
+      return res.status(400).json({ error: "'To Date' cannot be earlier than 'From Date'!" });
+    }
+
+    // Calculate days excluding weekends
     let totalDays = 0;
     
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {

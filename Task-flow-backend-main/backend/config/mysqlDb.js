@@ -29,7 +29,88 @@ async function initDB() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
-    // Create specific viewable tables in phpMyAdmin for convenience
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS roles (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        status VARCHAR(50) DEFAULT 'Active',
+        permissions JSON,
+        company_id VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS permissions (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        value VARCHAR(100) NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS task_statuses (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        status VARCHAR(50) DEFAULT 'Active',
+        project_id VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS ratings (
+        id VARCHAR(50) PRIMARY KEY,
+        employee_id VARCHAR(50) NOT NULL,
+        rated_by VARCHAR(50) NOT NULL,
+        company_id VARCHAR(50),
+        project_id VARCHAR(50),
+        task_id VARCHAR(50),
+        score INT NOT NULL DEFAULT 5,
+        category VARCHAR(100) DEFAULT 'Overall Performance',
+        review_period VARCHAR(100) DEFAULT 'General Review',
+        feedback TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_emp (employee_id),
+        INDEX idx_comp (company_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS chat_conversations (
+        id VARCHAR(50) PRIMARY KEY,
+        type VARCHAR(20) DEFAULT 'direct',
+        name VARCHAR(150),
+        participants JSON,
+        client_participants JSON,
+        created_by VARCHAR(50),
+        company_id VARCHAR(50),
+        last_message JSON,
+        is_archived TINYINT(1) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id VARCHAR(50) PRIMARY KEY,
+        conversation_id VARCHAR(50) NOT NULL,
+        sender_id VARCHAR(50) NOT NULL,
+        sender_name VARCHAR(150),
+        sender_image VARCHAR(255),
+        text TEXT,
+        file_url VARCHAR(255),
+        file_name VARCHAR(255),
+        read_by JSON,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_conv (conversation_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
     await connection.query(`
       CREATE TABLE IF NOT EXISTS staff (
         id VARCHAR(50) PRIMARY KEY,
@@ -41,6 +122,9 @@ async function initDB() {
         status VARCHAR(50) DEFAULT 'Active',
         phone VARCHAR(50),
         company_id VARCHAR(50),
+        reset_password_token VARCHAR(255),
+        reset_password_expires BIGINT,
+        image VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
@@ -94,9 +178,46 @@ async function initDB() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
-    // Ensure only_admin_clock_out column exists in attendance
+    // Ensure columns exist in attendance
     try {
       await connection.query("ALTER TABLE attendance ADD COLUMN only_admin_clock_out TINYINT(1) DEFAULT 0");
+    } catch (_) {}
+    try {
+      await connection.query("ALTER TABLE attendance ADD COLUMN auto_clock_out TINYINT(1) DEFAULT 0");
+    } catch (_) {}
+    try {
+      await connection.query("ALTER TABLE attendance ADD COLUMN missed_clock_out TINYINT(1) DEFAULT 0");
+    } catch (_) {}
+    try {
+      await connection.query("ALTER TABLE attendance ADD COLUMN is_late_instance TINYINT(1) DEFAULT 0");
+    } catch (_) {}
+    try {
+      await connection.query("ALTER TABLE attendance ADD COLUMN late_minutes INT DEFAULT 0");
+    } catch (_) {}
+    try {
+      await connection.query("ALTER TABLE attendance ADD COLUMN first_half_deducted TINYINT(1) DEFAULT 0");
+    } catch (_) {}
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS attendance_settings (
+        id VARCHAR(50) PRIMARY KEY DEFAULT 'default_settings',
+        monthly_late_instances INT DEFAULT 3,
+        late_grace_minutes INT DEFAULT 30,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    // Ensure default attendance settings exist
+    try {
+      const [existingSettings] = await connection.query("SELECT COUNT(*) as count FROM attendance_settings");
+      if (existingSettings[0].count === 0) {
+        await connection.query(`
+          INSERT INTO attendance_settings (id, monthly_late_instances, late_grace_minutes)
+          VALUES ('default_settings', 3, 30)
+        `);
+        console.log("✅ Seeded default attendance settings (3 monthly late instances, 30 min grace)");
+      }
     } catch (_) {}
 
     await connection.query(`
@@ -141,11 +262,20 @@ async function initDB() {
         is_working_day TINYINT(1) DEFAULT 1,
         clock_in_time VARCHAR(10) DEFAULT '09:30',
         clock_out_time VARCHAR(10) DEFAULT '18:30',
+        saturday_rule VARCHAR(30) DEFAULT '2nd_4th_off',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uq_day (day_of_week)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
+
+    // Ensure columns exist if table was already created
+    try {
+      const [colCheck] = await connection.query("SHOW COLUMNS FROM work_schedules LIKE 'saturday_rule'");
+      if (colCheck.length === 0) {
+        await connection.query("ALTER TABLE work_schedules ADD COLUMN saturday_rule VARCHAR(30) DEFAULT '2nd_4th_off'");
+      }
+    } catch (e) {}
 
     // Seed default weekday work schedules
     const [existingSchedules] = await connection.query("SELECT COUNT(*) as count FROM work_schedules");
@@ -290,6 +420,30 @@ async function initDB() {
         end_date DATE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_subtask_task (task_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    // Ensure internal_tickets table exists
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS internal_tickets (
+        id VARCHAR(50) PRIMARY KEY,
+        ticket_number VARCHAR(50) UNIQUE NOT NULL,
+        user_id VARCHAR(100) NOT NULL,
+        user_name VARCHAR(150) NOT NULL,
+        user_email VARCHAR(150) NOT NULL,
+        category VARCHAR(100) NOT NULL,
+        item_type VARCHAR(100),
+        title VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        priority VARCHAR(50) DEFAULT 'Medium',
+        status VARCHAR(50) DEFAULT 'Open',
+        admin_remarks TEXT,
+        assigned_to VARCHAR(150),
+        resolved_at DATETIME,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_ticket_user (user_id),
+        INDEX idx_ticket_status (status)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 

@@ -245,3 +245,43 @@
 .logout-item:hover {
   background: #fef2f2;
 }
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 0 10px;
+    gap: 8px;
+    height: 56px;
+  }
+
+  .app-header__brand {
+    gap: 6px;
+  }
+
+  .project-dropdown__trigger {
+    padding: 5px 8px;
+    font-size: 11px;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .profile-name {
+    display: none !important;
+  }
+
+  .profile-dropdown__arrow {
+    display: none !important;
+  }
+
+  .profile-dropdown__trigger {
+    padding: 2px 4px;
+    gap: 0;
+    border: none;
+    background: transparent;
+  }
+
+  .app-header__right {
+    gap: 8px;
+  }
+}

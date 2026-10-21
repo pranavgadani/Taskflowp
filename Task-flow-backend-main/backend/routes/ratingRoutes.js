@@ -1,35 +1,73 @@
 const express = require("express");
 const router = express.Router();
-const Rating = require("../models/Rating");
-const Staff = require("../models/Staff");
 const authMiddleware = require("../middleware/auth");
+const { pool } = require("../config/mysqlDb");
+
+// Helper: format rating row
+function formatRating(row) {
+  return {
+    _id: row.id,
+    id: row.id,
+    employeeId: {
+      _id: row.emp_id,
+      id: row.emp_id,
+      name: row.emp_name,
+      email: row.emp_email,
+      image: row.emp_image || "",
+      position: row.emp_position || "Staff"
+    },
+    ratedBy: {
+      _id: row.rater_id,
+      id: row.rater_id,
+      name: row.rater_name || "Manager",
+      email: row.rater_email || "",
+      image: row.rater_image || ""
+    },
+    projectId: row.proj_id ? {
+      _id: row.proj_id,
+      id: row.proj_id,
+      name: row.proj_name || "Project",
+      title: row.proj_name || "Project"
+    } : null,
+    taskId: row.task_id ? {
+      _id: row.task_id,
+      id: row.task_id,
+      title: row.task_title || "Task"
+    } : null,
+    score: row.score,
+    category: row.category || "Overall Performance",
+    reviewPeriod: row.review_period || "General Review",
+    feedback: row.feedback || "",
+    createdAt: row.created_at
+  };
+}
 
 // @route   GET /api/ratings
-// @desc    Get all ratings for the current user's company (filtered optionally by employeeId)
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    const isSuperAdmin = req.user.email === (process.env.SUPERADMIN_EMAIL || "gadanipranav@gmail.com") || req.user.role?.name === "Super Admin";
-    let companyId = req.user.companyId?._id || req.user.companyId;
+    let query = `
+      SELECT r.*,
+             e.id as emp_id, e.name as emp_name, e.email as emp_email, e.position as emp_position, e.image as emp_image,
+             rb.id as rater_id, rb.name as rater_name, rb.email as rater_email, rb.image as rater_image,
+             p.id as proj_id, p.name as proj_name,
+             t.id as task_id, t.title as task_title
+      FROM ratings r
+      LEFT JOIN staff e ON r.employee_id = e.id
+      LEFT JOIN staff rb ON r.rated_by = rb.id
+      LEFT JOIN projects p ON r.project_id = p.id
+      LEFT JOIN tasks t ON r.task_id = t.id
+    `;
+    const params = [];
 
-    if (isSuperAdmin && !companyId) {
-      companyId = req.query.companyId || req.headers["x-company-id"];
-    }
-
-    const filter = {};
-    if (companyId) {
-      filter.companyId = companyId;
-    }
     if (req.query.employeeId) {
-      filter.employeeId = req.query.employeeId;
+      query += ` WHERE r.employee_id = ? OR e.email = ?`;
+      params.push(req.query.employeeId, req.query.employeeId);
     }
 
-    const ratings = await Rating.find(filter)
-      .populate("employeeId", "name email image position")
-      .populate("ratedBy", "name email image")
-      .populate("projectId", "title name")
-      .populate("taskId", "title")
-      .sort({ createdAt: -1 });
+    query += ` ORDER BY r.created_at DESC`;
 
+    const [rows] = await pool.query(query, params);
+    const ratings = rows.map(formatRating);
     res.json(ratings);
   } catch (error) {
     console.error("Error fetching ratings:", error);
@@ -38,32 +76,30 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 // @route   GET /api/ratings/summary
-// @desc    Get aggregate rating summary per employee
 router.get("/summary", authMiddleware, async (req, res) => {
   try {
-    const isSuperAdmin = req.user.email === (process.env.SUPERADMIN_EMAIL || "gadanipranav@gmail.com") || req.user.role?.name === "Super Admin";
-    let companyId = req.user.companyId?._id || req.user.companyId;
+    const query = `
+      SELECT r.*,
+             e.id as emp_id, e.name as emp_name, e.email as emp_email, e.position as emp_position, e.image as emp_image
+      FROM ratings r
+      INNER JOIN staff e ON r.employee_id = e.id
+    `;
+    const [rows] = await pool.query(query);
 
-    if (isSuperAdmin && !companyId) {
-      companyId = req.query.companyId || req.headers["x-company-id"];
-    }
-
-    const filter = {};
-    if (companyId) {
-      filter.companyId = companyId;
-    }
-
-    const ratings = await Rating.find(filter)
-      .populate("employeeId", "name email image position");
-
-    // Group by employee
     const summaryMap = {};
-    ratings.forEach((r) => {
-      if (!r.employeeId?._id) return;
-      const empId = r.employeeId._id.toString();
+    rows.forEach((r) => {
+      const empId = r.emp_id;
+      if (!empId) return;
       if (!summaryMap[empId]) {
         summaryMap[empId] = {
-          employee: r.employeeId,
+          employee: {
+            _id: r.emp_id,
+            id: r.emp_id,
+            name: r.emp_name,
+            email: r.emp_email,
+            image: r.emp_image || "",
+            position: r.emp_position || "Staff"
+          },
           totalRatings: 0,
           totalScore: 0,
           averageScore: 0,
@@ -93,7 +129,6 @@ router.get("/summary", authMiddleware, async (req, res) => {
 });
 
 // @route   POST /api/ratings
-// @desc    Create a new employee rating
 router.post("/", authMiddleware, async (req, res) => {
   try {
     const { employeeId, projectId, taskId, score, category, reviewPeriod, feedback } = req.body;
@@ -107,66 +142,51 @@ router.post("/", authMiddleware, async (req, res) => {
       return res.status(400).json({ message: "Score must be a number between 1 and 5." });
     }
 
-    const isSuperAdmin = req.user.email === (process.env.SUPERADMIN_EMAIL || "gadanipranav@gmail.com") || req.user.role?.name === "Super Admin";
-
-    // Find employee first (using _id or MySQL string id)
-    let employee = null;
-    try {
-      employee = await Staff.findById(employeeId);
-    } catch {
-      // ignore
+    // Lookup employee in staff table
+    const [empRows] = await pool.query("SELECT * FROM staff WHERE id = ? OR email = ? LIMIT 1", [employeeId, employeeId]);
+    if (!empRows || empRows.length === 0) {
+      return res.status(404).json({ message: "Employee not found in records." });
     }
-    if (!employee) {
-      employee = await Staff.findOne({ email: employeeId });
-    }
+    const emp = empRows[0];
 
-    // Resolve companyId
-    let companyId = req.user.companyId?._id || req.user.companyId || req.body.companyId;
-    if (!companyId && employee?.companyId) {
-      companyId = employee.companyId;
-    }
+    const id = `rate_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    const raterId = req.user._id || req.user.id;
+    const compId = req.user.companyId?._id || req.user.companyId || "default_company";
 
-    // If still no companyId (e.g. Super Admin without default company), fallback to first available Company or employee
-    if (!companyId) {
-      const Company = require("../models/Company");
-      const defaultCompany = await Company.findOne();
-      if (defaultCompany) {
-        companyId = defaultCompany._id;
-      }
-    }
+    await pool.query(
+      `INSERT INTO ratings (id, employee_id, rated_by, company_id, project_id, task_id, score, category, review_period, feedback)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        emp.id,
+        raterId,
+        compId,
+        projectId || null,
+        taskId || null,
+        numericScore,
+        category || "Overall Performance",
+        reviewPeriod || "General Review",
+        feedback ? feedback.trim() : ""
+      ]
+    );
 
-    if (!companyId) {
-      return res.status(400).json({ message: "No company associated with this evaluation." });
-    }
+    const [rows] = await pool.query(
+      `SELECT r.*,
+              e.id as emp_id, e.name as emp_name, e.email as emp_email, e.position as emp_position, e.image as emp_image,
+              rb.id as rater_id, rb.name as rater_name, rb.email as rater_email, rb.image as rater_image,
+              p.id as proj_id, p.name as proj_name,
+              t.id as task_id, t.title as task_title
+       FROM ratings r
+       LEFT JOIN staff e ON r.employee_id = e.id
+       LEFT JOIN staff rb ON r.rated_by = rb.id
+       LEFT JOIN projects p ON r.project_id = p.id
+       LEFT JOIN tasks t ON r.task_id = t.id
+       WHERE r.id = ?`,
+      [id]
+    );
 
-    // Verify employee
-    if (!employee && !isSuperAdmin) {
-      return res.status(404).json({ message: "Employee not found." });
-    }
-
-    const resolvedEmployeeId = employee ? employee._id : employeeId;
-
-    const rating = new Rating({
-      employeeId: resolvedEmployeeId,
-      ratedBy: req.user._id,
-      companyId,
-      projectId: projectId || null,
-      taskId: taskId || null,
-      score: numericScore,
-      category: category || "Overall Performance",
-      reviewPeriod: reviewPeriod || "General Review",
-      feedback: feedback ? feedback.trim() : "",
-    });
-
-    await rating.save();
-
-    const populatedRating = await Rating.findById(rating._id)
-      .populate("employeeId", "name email image position")
-      .populate("ratedBy", "name email image")
-      .populate("projectId", "title name")
-      .populate("taskId", "title");
-
-    res.status(201).json({ message: "Rating saved successfully", rating: populatedRating });
+    const formatted = formatRating(rows[0]);
+    res.status(201).json({ message: "Rating saved successfully", rating: formatted });
   } catch (error) {
     console.error("Error saving rating:", error);
     res.status(500).json({ message: error.message || "Server error saving rating" });
@@ -174,25 +194,9 @@ router.post("/", authMiddleware, async (req, res) => {
 });
 
 // @route   DELETE /api/ratings/:id
-// @desc    Delete a rating
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
-    const companyId = req.user.companyId?._id || req.user.companyId;
-    const rating = await Rating.findOne({ _id: req.params.id, companyId });
-    if (!rating) {
-      return res.status(404).json({ message: "Rating not found." });
-    }
-
-    // Allow deletion if super admin, company owner, or person who rated
-    const isSuperAdmin = req.user.email === "gadanipranav@gmail.com" || req.user.role?.name === "Super Admin";
-    const isCompanyOwner = req.user.role?.name === "Company Owner";
-    const isAuthor = rating.ratedBy.toString() === req.user._id.toString();
-
-    if (!isSuperAdmin && !isCompanyOwner && !isAuthor) {
-      return res.status(403).json({ message: "Not authorized to delete this rating." });
-    }
-
-    await Rating.findByIdAndDelete(req.params.id);
+    await pool.query("DELETE FROM ratings WHERE id = ?", [req.params.id]);
     res.json({ message: "Rating deleted successfully." });
   } catch (error) {
     console.error("Error deleting rating:", error);

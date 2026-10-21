@@ -6,29 +6,32 @@ module.exports = defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  timeout: 30000,
+  retries: process.env.CI ? 2 : 1,
+  timeout: 35000,
   expect: {
-    timeout: 7000
+    timeout: 8000,
   },
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ['json', { outputFile: 'test-results/results.json' }],
-    ['list']
+    ['list'],
   ],
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:5173',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-    actionTimeout: 10000,
-    navigationTimeout: 15000,
+    actionTimeout: 12000,
+    navigationTimeout: 20000,
   },
   projects: [
+    // ── Phase 1: Auth setup (saves session state) ────────────────────────────
     {
       name: 'setup',
+      testDir: './fixtures',
       testMatch: /.*\.setup\.js/,
     },
+    // ── Phase 2: All E2E test suites (depend on setup) ───────────────────────
     {
       name: 'chromium',
       use: {

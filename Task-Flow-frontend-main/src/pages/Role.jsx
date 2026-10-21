@@ -29,7 +29,7 @@ export default function Role() {
 
   const [form, setForm] = useState({
     name: "",
-    status: "",
+    status: "Active",
     permissions: []
   });
 
@@ -140,7 +140,7 @@ export default function Role() {
   const resetForm = () => {
     setForm({
       name: "",
-      status: "",
+      status: "Active",
       permissions: []
     });
     setEditId(null);
@@ -335,12 +335,14 @@ export default function Role() {
             <div className="permissions-table-container" style={{
               background: 'var(--ui-surface)',
               borderRadius: '12px',
-              overflow: 'hidden',
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
               border: '1px solid var(--ui-border)',
               boxShadow: 'var(--shadow-sm)'
             }}>
               <table style={{
                 width: '100%',
+                minWidth: '520px',
                 borderCollapse: 'collapse',
               }}>
                 <thead>

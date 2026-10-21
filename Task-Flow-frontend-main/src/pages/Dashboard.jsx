@@ -9,9 +9,33 @@ import AlertModal from "../components/common/AlertModal";
 import ConfirmModal from "../components/common/ConfirmModal";
 import API from "../api/api";
 import "../style/main.css";
+import EmployeeDashboard from "./dashboards/EmployeeDashboard";
+import SuperAdminDashboard from "./dashboards/SuperAdminDashboard";
+import ProjectManagerDashboard from "./dashboards/ProjectManagerDashboard";
 
 export default function Dashboard() {
   const { user } = useAuth();
+
+  const roleName = (user?.role?.name || user?.role || "").toString().toLowerCase();
+
+  const isSuperAdmin = user?.email === "gadanipranav@gmail.com" || roleName.includes("super admin");
+  const isProjectManager = roleName.includes("project manager") || roleName === "role_owner" || roleName.includes("manager");
+  const isCompanyOwner = roleName.includes("owner");
+
+  // Route to dedicated Super Admin dashboard
+  if (isSuperAdmin) {
+    return <SuperAdminDashboard />;
+  }
+
+  // Route to dedicated Project Manager dashboard
+  if (isProjectManager) {
+    return <ProjectManagerDashboard />;
+  }
+
+  // Route to dedicated Employee dashboard
+  if (!isCompanyOwner) {
+    return <EmployeeDashboard />;
+  }
   const { selectedProject } = useProject();
   const { selectedCompany } = useCompany();
   const { socket, connected } = useSocket();
@@ -29,6 +53,7 @@ export default function Dashboard() {
   const [attendance, setAttendance] = useState(null);
   const [attLoading, setAttLoading] = useState(false);
   const [workMode, setWorkMode] = useState("Office");
+  const [leaveNotice, setLeaveNotice] = useState(null);
 
   // Modern Popup Modals State
   const [alertInfo, setAlertInfo] = useState({ show: false, title: "", message: "", type: "info" });
@@ -38,10 +63,20 @@ export default function Dashboard() {
     setAlertInfo({ show: true, title, message, type });
   };
 
+  const [scheduleInfo, setScheduleInfo] = useState(null);
+  const [lateInstances, setLateInstances] = useState(null);
+
   const fetchTodayAttendance = async () => {
     try {
       const res = await API.get("/attendance/today");
       setAttendance(res.data?.attendance || null);
+      setLeaveNotice(res.data?.requiredLeaveNotice || null);
+      if (res.data?.schedule) {
+        setScheduleInfo(res.data.schedule);
+      }
+      if (res.data?.late_instances) {
+        setLateInstances(res.data.late_instances);
+      }
       if (res.data?.attendance?.work_mode) {
         setWorkMode(res.data.attendance.work_mode);
       }
@@ -55,8 +90,19 @@ export default function Dashboard() {
       setAttLoading(true);
       const res = await API.post("/attendance/clock-in", { workMode });
       setAttendance(res.data.attendance);
+      setLeaveNotice(null);
+      if (res.data?.lateNotice) {
+        showAlert(res.data.lateNotice, res.data.first_half_deducted ? "Half Day Applied" : "Late Arrival Recorded", res.data.first_half_deducted ? "danger" : "warning");
+      }
     } catch (err) {
-      showAlert(err.response?.data?.error || "Clock In Failed", "Clock In Error", "error");
+      const errMsg = err.response?.data?.error || "Clock In Failed";
+      if (err.response?.data?.requireLeaveDate) {
+        setLeaveNotice({
+          date: err.response.data.requireLeaveDate,
+          message: errMsg
+        });
+      }
+      showAlert(errMsg, "Leave Required To Clock In", "warning");
     } finally {
       setAttLoading(false);
     }
@@ -331,13 +377,51 @@ export default function Dashboard() {
       </div>
 
       {/* CLOCK IN / CLOCK OUT BANNER WIDGET */}
+      {leaveNotice && (
+        <div style={{
+          background: "rgba(245, 158, 11, 0.12)",
+          border: "1px solid #f59e0b",
+          borderRadius: "16px",
+          padding: "16px 20px",
+          marginBottom: "16px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "12px"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <span style={{ fontSize: "22px" }}>⚠️</span>
+            <div>
+              <strong style={{ color: "#d97706", fontSize: "14px", display: "block" }}>Action Required Before Clock In</strong>
+              <span style={{ color: "var(--text-main, #1e293b)", fontSize: "13px" }}>{leaveNotice.message}</span>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate(`/leave?date=${leaveNotice.date}&type=Second Half`)}
+            style={{
+              background: "#d97706",
+              color: "#fff",
+              border: "none",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              fontWeight: "700",
+              fontSize: "13px",
+              cursor: "pointer"
+            }}
+          >
+            Apply Second Half Leave →
+          </button>
+        </div>
+      )}
+
       <div style={{
-        background: "#ffffff",
+        background: "var(--ui-surface, #ffffff)",
         borderRadius: "20px",
         padding: "24px 28px",
         marginBottom: "36px",
-        border: "1px solid #e2e8f0",
-        boxShadow: "0 10px 25px -5px rgba(0,0,0,0.05)",
+        border: "1px solid var(--ui-border, #e2e8f0)",
+        boxShadow: "0 10px 25px -5px rgba(0,0,0,0.15)",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
@@ -349,26 +433,77 @@ export default function Dashboard() {
             width: "56px",
             height: "56px",
             borderRadius: "16px",
-            background: attendance?.clock_in && !attendance?.clock_out ? "#dcfce7" : "#f1f5f9",
-            color: attendance?.clock_in && !attendance?.clock_out ? "#16a34a" : "#64748b",
+            background: attendance?.clock_in && !attendance?.clock_out ? "rgba(34, 197, 94, 0.15)" : "var(--ui-bg, #f1f5f9)",
+            color: attendance?.clock_in && !attendance?.clock_out ? "#22c55e" : "var(--text-muted, #64748b)",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center"
+            justifyContent: "center",
+            border: "1px solid var(--ui-border, #e2e8f0)"
           }}>
             <ClockIcon size={26} color="currentColor" />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: "20px", fontWeight: "800", color: "#1e293b" }}>
+            <h3 style={{ margin: 0, fontSize: "20px", fontWeight: "800", color: "var(--text-main, #1e293b)", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
               Daily Attendance & Shift Punch
+              {scheduleInfo?.excessBreakMinutes > 0 && (
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: "700",
+                    padding: "3px 10px",
+                    borderRadius: "20px",
+                    background: "rgba(245, 158, 11, 0.15)",
+                    color: "#f59e0b",
+                    border: "1px solid rgba(245, 158, 11, 0.35)",
+                    letterSpacing: "0.2px"
+                  }}
+                  title={scheduleInfo.excessBreakBreakdown?.join("; ") || `+${scheduleInfo.excessBreakMinutes}m excess break`}
+                >
+                  ⏳ +{scheduleInfo.excessBreakMinutes}m Excess Break (Shift: {Math.floor(scheduleInfo.requiredShiftMinutes / 60)}h {scheduleInfo.requiredShiftMinutes % 60}m)
+                </span>
+              )}
+              {lateInstances && (
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: "700",
+                    padding: "3px 10px",
+                    borderRadius: "20px",
+                    background: lateInstances.is_exhausted
+                      ? "rgba(239, 68, 68, 0.15)"
+                      : lateInstances.used > 0
+                      ? "rgba(245, 158, 11, 0.15)"
+                      : "rgba(34, 197, 94, 0.15)",
+                    color: lateInstances.is_exhausted
+                      ? "#f87171"
+                      : lateInstances.used > 0
+                      ? "#f59e0b"
+                      : "#22c55e",
+                    border: lateInstances.is_exhausted
+                      ? "1px solid rgba(239, 68, 68, 0.35)"
+                      : lateInstances.used > 0
+                      ? "1px solid rgba(245, 158, 11, 0.35)"
+                      : "1px solid rgba(34, 197, 94, 0.35)",
+                    letterSpacing: "0.2px"
+                  }}
+                  title={
+                    lateInstances.is_exhausted
+                      ? `Monthly late instances exhausted (${lateInstances.used}/${lateInstances.limit}). Late arrival triggers First Half Day!`
+                      : `Used ${lateInstances.used} of ${lateInstances.limit} allowed monthly late instances. Grace period is ${lateInstances.grace_minutes} mins.`
+                  }
+                >
+                  {lateInstances.is_exhausted ? "🚨" : lateInstances.used > 0 ? "⚠️" : "🔔"} Late Instances: {lateInstances.used}/{lateInstances.limit} Used ({lateInstances.remaining} Left)
+                </span>
+              )}
             </h3>
-            <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: "14px" }}>
+            <p style={{ margin: "4px 0 0", color: "var(--text-muted, #64748b)", fontSize: "14px" }}>
               {attendance?.clock_in ? (
-                <>Clocked In at <strong style={{ color: "#16a34a" }}>{new Date(attendance.clock_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong> ({attendance.work_mode})</>
+                <>Clocked In at <strong style={{ color: "#22c55e" }}>{new Date(attendance.clock_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong> ({attendance.work_mode})</>
               ) : (
                 "You haven't clocked in yet for today. Start your shift below."
               )}
               {attendance?.clock_out && (
-                <> • Clocked Out at <strong style={{ color: "#dc2626" }}>{new Date(attendance.clock_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong> ({attendance.total_hours} hrs)</>
+                <> • Clocked Out at <strong style={{ color: "#ef4444" }}>{new Date(attendance.clock_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong> ({attendance.total_hours} hrs)</>
               )}
             </p>
           </div>
@@ -381,15 +516,17 @@ export default function Dashboard() {
               onChange={(e) => setWorkMode(e.target.value)}
               style={{
                 padding: "10px 14px",
-                border: "1px solid #cbd5e1",
+                border: "1px solid var(--ui-border, #cbd5e1)",
                 borderRadius: "10px",
                 fontWeight: "600",
-                color: "#334155"
+                background: "var(--ui-bg, #0f172a)",
+                color: "var(--text-main, #334155)",
+                outline: "none"
               }}
             >
-              <option value="Office">Office</option>
-              <option value="Work From Home">Work From Home</option>
-              <option value="On-site">On-site (Client)</option>
+              <option value="Office" style={{ background: "var(--ui-surface, #1e293b)", color: "var(--text-main, #fff)" }}>Office</option>
+              <option value="Work From Home" style={{ background: "var(--ui-surface, #1e293b)", color: "var(--text-main, #fff)" }}>Work From Home</option>
+              <option value="On-site" style={{ background: "var(--ui-surface, #1e293b)", color: "var(--text-main, #fff)" }}>On-site (Client)</option>
             </select>
           )}
 
@@ -420,9 +557,9 @@ export default function Dashboard() {
                 onClick={handleBreakToggle}
                 disabled={attLoading}
                 style={{
-                  background: attendance.break_start ? "#eab308" : "#f1f5f9",
-                  color: attendance.break_start ? "#ffffff" : "#334155",
-                  border: "1px solid #cbd5e1",
+                  background: attendance.break_start ? "#eab308" : "var(--ui-bg, #f1f5f9)",
+                  color: attendance.break_start ? "#ffffff" : "var(--text-main, #334155)",
+                  border: "1px solid var(--ui-border, #cbd5e1)",
                   padding: "12px 18px",
                   borderRadius: "12px",
                   fontWeight: "600",

@@ -1,15 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const Permission = require("../models/Permission");
-
+const { pool } = require("../config/mysqlDb");
 const { checkPermission } = require("../middleware/permissions");
 const authMiddleware = require("../middleware/auth");
 
 // GET all permissions
 router.get("/", authMiddleware, checkPermission("permission_management", "read"), async (req, res) => {
   try {
-    const permissions = await Permission.find();
-    res.json(permissions);
+    const [rows] = await pool.query("SELECT id as _id, id, name, value, created_at FROM permissions ORDER BY name ASC");
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -18,9 +17,12 @@ router.get("/", authMiddleware, checkPermission("permission_management", "read")
 // ADD permission
 router.post("/", authMiddleware, checkPermission("permission_management", "create"), async (req, res) => {
   try {
-    const permission = new Permission(req.body);
-    await permission.save();
-    res.json(permission);
+    const { name, value } = req.body;
+    if (!name || !value) return res.status(400).json({ error: "Name and value are required" });
+
+    const id = `perm_${Date.now()}`;
+    await pool.query("INSERT INTO permissions (id, name, value) VALUES (?, ?, ?)", [id, name, value]);
+    res.json({ _id: id, id, name, value });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -29,12 +31,10 @@ router.post("/", authMiddleware, checkPermission("permission_management", "creat
 // UPDATE permission
 router.put("/:id", authMiddleware, checkPermission("permission_management", "update"), async (req, res) => {
   try {
-    const permission = await Permission.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { returnDocument: 'after' }
-    );
-    res.json(permission);
+    const { name, value } = req.body;
+    await pool.query("UPDATE permissions SET name = COALESCE(?, name), value = COALESCE(?, value) WHERE id = ?", [name, value, req.params.id]);
+    const [rows] = await pool.query("SELECT id as _id, id, name, value FROM permissions WHERE id = ?", [req.params.id]);
+    res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -43,7 +43,7 @@ router.put("/:id", authMiddleware, checkPermission("permission_management", "upd
 // DELETE permission
 router.delete("/:id", authMiddleware, checkPermission("permission_management", "delete"), async (req, res) => {
   try {
-    await Permission.findByIdAndDelete(req.params.id);
+    await pool.query("DELETE FROM permissions WHERE id = ?", [req.params.id]);
     res.json({ message: "Deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });

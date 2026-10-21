@@ -4,6 +4,7 @@ const Role = require("../models/Role");
 const Subscription = require("../models/Subscription");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { pool } = require("../config/mysqlDb");
 
 // Registration
 exports.registerCompany = async (req, res) => {
@@ -56,7 +57,6 @@ exports.registerCompany = async (req, res) => {
         { name: "Task Management", value: "task_management", all: true, create: true, read: true, update: true, delete: true },
         { name: "Project Management", value: "project_management", all: true, create: true, read: true, update: true, delete: true },
         { name: "View Dashboard", value: "view_dashboard", all: true, read: true },
-        { name: "Issue Management", value: "issue", all: true, create: true, read: true, update: true, delete: true },
         { name: "Task Status Management", value: "task_status_management", all: true, create: true, read: true, update: true, delete: true },
         { name: "Document Management", value: "document", all: true, create: true, read: true, update: true, delete: true },
         { name: "Role Management", value: "role_management", all: true, create: true, read: true, update: true, delete: true },
@@ -69,7 +69,6 @@ exports.registerCompany = async (req, res) => {
       permissions: [
         { name: "Task Management", value: "task_management", all: false, create: true, read: true, update: true, delete: false },
         { name: "View Dashboard", value: "view_dashboard", all: true, read: true },
-        { name: "Issue Management", value: "issue", all: false, create: true, read: true, update: true, delete: false },
         { name: "Document Management", value: "document", all: false, create: false, read: true, update: false, delete: false }
       ]
     });
@@ -81,7 +80,6 @@ exports.registerCompany = async (req, res) => {
         { name: "Task Management", value: "task_management", all: true, create: true, read: true, update: true, delete: true },
         { name: "Project Management", value: "project_management", all: false, create: false, read: true, update: false, delete: false },
         { name: "View Dashboard", value: "view_dashboard", all: true, read: true },
-        { name: "Issue Management", value: "issue", all: true, create: true, read: true, update: true, delete: true },
         { name: "Task Status Management", value: "task_status_management", all: false, create: false, read: true, update: false, delete: false },
         { name: "Document Management", value: "document", all: false, create: true, read: true, update: true, delete: false }
       ]
@@ -91,8 +89,7 @@ exports.registerCompany = async (req, res) => {
       name: "Worker", status: "Active", companyId: company._id,
       permissions: [
         { name: "Task Management", value: "task_management", all: false, create: false, read: true, update: true, delete: false },
-        { name: "View Dashboard", value: "view_dashboard", all: true, read: true },
-        { name: "Issue Management", value: "issue", all: false, create: false, read: true, update: true, delete: false }
+        { name: "View Dashboard", value: "view_dashboard", all: true, read: true }
       ]
     });
 
@@ -106,19 +103,19 @@ exports.registerCompany = async (req, res) => {
 
     const populatedStaff = await Staff.findById(staff._id).populate("role").populate("companyId");
     const token = jwt.sign({ id: staff._id }, process.env.JWT_SECRET || "tasksecret", { expiresIn: "7d" });
-    res.cookie("token", token, { 
-      httpOnly: true, 
-      secure: true, 
-      sameSite: "none", 
-      maxAge: 7 * 24 * 60 * 60 * 1000 
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
-    
-    res.status(201).json({ 
-      message: "Company and Owner registered successfully", 
-      company, 
-      staff: populatedStaff, 
+
+    res.status(201).json({
+      message: "Company and Owner registered successfully",
+      company,
+      staff: populatedStaff,
       token,
-      autoLogin: true 
+      autoLogin: true
     });
   } catch (err) {
     console.error("REGISTER ERROR:", err);
@@ -128,16 +125,84 @@ exports.registerCompany = async (req, res) => {
 
 exports.getCompanies = async (req, res) => {
   try {
-    const companies = await Company.find().sort({ createdAt: -1 });
-    res.json(companies);
+    // If MySQL has collections stored:
+    const [rows] = await pool.query("SELECT data FROM collections WHERE collection_name = 'companies' ORDER BY created_at DESC");
+    if (rows && rows.length > 0) {
+      const parsed = rows.map(r => typeof r.data === "string" ? JSON.parse(r.data) : r.data);
+      return res.json(parsed);
+    }
+
+    // Default company object for pure MySQL setup
+    return res.json([
+      {
+        _id: "default_company",
+        companyName: "TaskFlow Technologies",
+        email: "info@taskflow.com",
+        phone: "9876543210",
+        addressLine1: "Tech Hub, 4th Floor",
+        city: "Ahmedabad",
+        state: "Gujarat",
+        country: "India",
+        pincode: "380015",
+        status: "Active"
+      }
+    ]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.json([]);
   }
 };
 
+async function getCompanyData(companyId) {
+  try {
+    let query = "SELECT data FROM collections WHERE collection_name = 'companies'";
+    let params = [];
+    if (companyId) {
+      query += " AND _id = ? LIMIT 1";
+      params.push(companyId);
+    } else {
+      query += " LIMIT 1";
+    }
+    const [rows] = await pool.query(query, params);
+    if (rows && rows.length > 0) {
+      return typeof rows[0].data === "string" ? JSON.parse(rows[0].data) : rows[0].data;
+    }
+  } catch (e) {}
+
+  return {
+    _id: "default_company",
+    companyName: "TaskFlow Technologies",
+    email: "info@taskflow.com",
+    phone: "9876543210",
+    addressLine1: "Tech Hub, 4th Floor",
+    city: "Ahmedabad",
+    state: "Gujarat",
+    country: "India",
+    pincode: "380015",
+    workingHours: {
+      startTime: "09:30",
+      endTime: "18:30"
+    },
+    breakTime: {
+      lunchBreak: 40,
+      teaBreak: 20
+    },
+    policies: []
+  };
+}
+
+async function saveCompanyData(companyData) {
+  const id = companyData._id || "default_company";
+  companyData._id = id;
+  await pool.query(
+    "INSERT INTO collections (collection_name, _id, data) VALUES ('companies', ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)",
+    [id, JSON.stringify(companyData)]
+  );
+  return companyData;
+}
+
 exports.getCompanyById = async (req, res) => {
   try {
-    const company = await Company.findById(req.params.id);
+    const company = await getCompanyData(req.params.id);
     if (!company) return res.status(404).json({ error: "Company not found" });
     res.json(company);
   } catch (err) {
@@ -148,36 +213,23 @@ exports.getCompanyById = async (req, res) => {
 exports.updateCompany = async (req, res) => {
   try {
     const updateData = { ...req.body };
-
-    // Handle JSON parsing for nested objects if sent as strings (e.g. from FormData)
     if (typeof updateData.workingHours === 'string') {
-        try { updateData.workingHours = JSON.parse(updateData.workingHours); } catch(e) {}
+      try { updateData.workingHours = JSON.parse(updateData.workingHours); } catch (e) { }
     }
     if (typeof updateData.breakTime === 'string') {
-        try { updateData.breakTime = JSON.parse(updateData.breakTime); } catch(e) {}
+      try { updateData.breakTime = JSON.parse(updateData.breakTime); } catch (e) { }
     }
     if (typeof updateData.holidays === 'string') {
-        try { updateData.holidays = JSON.parse(updateData.holidays); } catch(e) {}
+      try { updateData.holidays = JSON.parse(updateData.holidays); } catch (e) { }
     }
-
     if (req.file) updateData.appLogo = `/uploads/${req.file.filename}`;
-    
-    // Remove read-only or sensitive fields from updateData
-    delete updateData._id;
-    delete updateData.__v;
-    delete updateData.createdAt;
 
-    const company = await Company.findById(req.params.id);
+    const company = await getCompanyData(req.params.id);
     if (!company) return res.status(404).json({ error: "Company not found" });
 
-    Object.assign(company, updateData);
-
-    if (updateData.workingHours) company.markModified("workingHours");
-    if (updateData.breakTime) company.markModified("breakTime");
-    if (updateData.holidays) company.markModified("holidays");
-
-    await company.save();
-    res.json(company);
+    const merged = { ...company, ...updateData };
+    await saveCompanyData(merged);
+    res.json(merged);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -185,9 +237,8 @@ exports.updateCompany = async (req, res) => {
 
 exports.deleteCompany = async (req, res) => {
   try {
-    const company = await Company.findByIdAndDelete(req.params.id);
-    if (!company) return res.status(404).json({ error: "Company not found" });
-    await Staff.deleteMany({ companyId: req.params.id });
+    await pool.query("DELETE FROM collections WHERE collection_name = 'companies' AND _id = ?", [req.params.id]);
+    await pool.query("DELETE FROM staff WHERE company_id = ?", [req.params.id]);
     res.json({ message: "Company and its staff deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -199,18 +250,13 @@ exports.getSettings = async (req, res) => {
   try {
     const isSuperAdmin = req.user.email === "gadanipranav@gmail.com" || req.user.role?.name === "Super Admin";
     let companyId = req.user.companyId?._id || req.user.companyId;
-    
+
     if (isSuperAdmin && req.query.companyId) {
       companyId = Array.isArray(req.query.companyId) ? req.query.companyId[0] : req.query.companyId;
     }
 
-    let company = await Company.findById(companyId);
-    if (!company) {
-      company = await Company.findOne();
-    }
-    if (!company) return res.status(404).json({ error: "Company not found" });
-
-    res.json(company);
+    const data = await getCompanyData(companyId);
+    return res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -224,62 +270,30 @@ exports.updateSettings = async (req, res) => {
     if (!isOwnerOrAdmin) return res.status(403).json({ error: "Permission denied" });
 
     let companyId = req.user.companyId?._id || req.user.companyId;
-    
     if (isSuperAdmin && req.query.companyId) {
       companyId = Array.isArray(req.query.companyId) ? req.query.companyId[0] : req.query.companyId;
     }
 
-    let company = companyId ? await Company.findById(companyId) : await Company.findOne();
-    if (!company) return res.status(404).json({ error: "Company not found" });
-
+    const company = await getCompanyData(companyId);
     const updateData = { ...req.body };
-
-    // Function to parse JSON if string
     const parse = (val) => {
-        if (typeof val === 'string') {
-            try { return JSON.parse(val); } catch(e) { return val; }
-        }
-        return val;
+      if (typeof val === 'string') {
+        try { return JSON.parse(val); } catch (e) { return val; }
+      }
+      return val;
     };
 
-    // Explicitly handle nested objects
-    if (updateData.workingHours) {
-        company.workingHours = parse(updateData.workingHours);
-        company.markModified("workingHours");
-        delete updateData.workingHours;
-    }
-    if (updateData.breakTime) {
-        company.breakTime = parse(updateData.breakTime);
-        company.markModified("breakTime");
-        delete updateData.breakTime;
-    }
-    if (updateData.holidays) {
-        company.holidays = parse(updateData.holidays);
-        company.markModified("holidays");
-        delete updateData.holidays;
-    }
-    if (updateData.policies) {
-        company.policies = parse(updateData.policies);
-        company.markModified("policies");
-        delete updateData.policies;
-    }
-
+    if (updateData.workingHours) updateData.workingHours = parse(updateData.workingHours);
+    if (updateData.breakTime) updateData.breakTime = parse(updateData.breakTime);
+    if (updateData.holidays) updateData.holidays = parse(updateData.holidays);
+    if (updateData.policies) updateData.policies = parse(updateData.policies);
     if (req.file) updateData.appLogo = `/uploads/${req.file.filename}`;
 
-    // Remove read-only or sensitive fields from updateData
-    delete updateData._id;
-    delete updateData.__v;
-    delete updateData.createdAt;
-    delete updateData.updatedAt;
-
-    // Set remaining fields
-    company.set(updateData);
-
-    await company.save();
-    res.json({ message: "Settings updated successfully", settings: company });
+    const merged = { ...company, ...updateData, updatedAt: new Date() };
+    await saveCompanyData(merged);
+    res.json({ message: "Settings updated successfully", settings: merged });
   } catch (err) {
-    console.error("DEBUG: updateSettings error detail:", err);
-    res.status(500).json({ error: err.message, stack: err.stack });
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -287,10 +301,7 @@ exports.updateSettings = async (req, res) => {
 exports.getPolicies = async (req, res) => {
   try {
     let companyId = req.user.companyId?._id || req.user.companyId;
-    let company = companyId ? await Company.findById(companyId) : await Company.findOne();
-    if (!company) company = await Company.findOne();
-    if (!company) return res.json({ policies: [] });
-
+    const company = await getCompanyData(companyId);
     res.json({ policies: company.policies || [] });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -308,11 +319,10 @@ exports.addPolicy = async (req, res) => {
     if (!title || !content) return res.status(400).json({ error: "Policy title and content are required" });
 
     let companyId = req.user.companyId?._id || req.user.companyId;
-    let company = companyId ? await Company.findById(companyId) : await Company.findOne();
-    if (!company) company = await Company.findOne();
-    if (!company) return res.status(404).json({ error: "Company not found" });
+    const company = await getCompanyData(companyId);
 
     const newPolicy = {
+      _id: "pol_" + Date.now() + "_" + Math.random().toString(36).substr(2, 6),
       title: title.trim(),
       category: category || "General",
       summary: (summary || "").trim(),
@@ -325,7 +335,7 @@ exports.addPolicy = async (req, res) => {
 
     if (!Array.isArray(company.policies)) company.policies = [];
     company.policies.push(newPolicy);
-    await company.save();
+    await saveCompanyData(company);
 
     res.status(201).json({ message: "Company policy added successfully", policy: newPolicy, policies: company.policies });
   } catch (err) {
@@ -344,11 +354,10 @@ exports.updatePolicy = async (req, res) => {
     const { title, category, summary, content, effectiveDate, status } = req.body;
 
     let companyId = req.user.companyId?._id || req.user.companyId;
-    let company = companyId ? await Company.findById(companyId) : await Company.findOne();
-    if (!company) company = await Company.findOne();
-    if (!company) return res.status(404).json({ error: "Company not found" });
+    const company = await getCompanyData(companyId);
 
-    const policy = company.policies.id(policyId);
+    if (!Array.isArray(company.policies)) company.policies = [];
+    const policy = company.policies.find(p => (p._id || p.id) == policyId);
     if (!policy) return res.status(404).json({ error: "Policy not found" });
 
     if (title) policy.title = title.trim();
@@ -360,7 +369,7 @@ exports.updatePolicy = async (req, res) => {
     policy.updatedBy = req.user.name || "Admin";
     policy.updatedAt = new Date();
 
-    await company.save();
+    await saveCompanyData(company);
     res.json({ message: "Policy updated successfully", policy, policies: company.policies });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -376,12 +385,11 @@ exports.deletePolicy = async (req, res) => {
 
     const { policyId } = req.params;
     let companyId = req.user.companyId?._id || req.user.companyId;
-    let company = companyId ? await Company.findById(companyId) : await Company.findOne();
-    if (!company) company = await Company.findOne();
-    if (!company) return res.status(404).json({ error: "Company not found" });
+    const company = await getCompanyData(companyId);
 
-    company.policies = company.policies.filter(p => p._id.toString() !== policyId);
-    await company.save();
+    if (!Array.isArray(company.policies)) company.policies = [];
+    company.policies = company.policies.filter(p => (p._id || p.id) != policyId);
+    await saveCompanyData(company);
 
     res.json({ message: "Policy deleted successfully", policies: company.policies });
   } catch (err) {

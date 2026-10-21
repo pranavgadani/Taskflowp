@@ -34,7 +34,7 @@ export default function Document() {
     const isSuperAdmin = user?.email === SUPERADMIN_EMAIL || user?.role?.name === "Super Admin";
     const userRole = user?.role?.name?.toLowerCase() || "";
     const isCompanyOwner = userRole.includes("company owner") || userRole.includes("admin");
-    const canManageDocs = (isSuperAdmin || isCompanyOwner) && !!selectedProject; // Require context for adding
+    const canManageDocs = isSuperAdmin || isCompanyOwner; // Allow managing docs globally or per-project
     const location = useLocation();
     const params = new URLSearchParams(location.search);
     const viewDocId = params.get("view");
@@ -530,14 +530,14 @@ export default function Document() {
 
             {/* Banner & Popup Logic */}
             {isSuperAdmin && pendingRequests.length > 0 && (
-                <div style={{ background: "linear-gradient(135deg, #fefce8, #fef3c7)", border: "1.5px solid #fbbf24", borderRadius: "12px", padding: "16px 20px", marginBottom: "20px" }}>
+                <div style={{ background: "rgba(245, 158, 11, 0.12)", border: "1.5px solid #f59e0b", borderRadius: "12px", padding: "16px 20px", marginBottom: "20px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", color: "#d97706" }}><BellIcon size={20} color="#d97706" /></span>
-                        <span style={{ fontWeight: "700", fontSize: "15px", color: "#92400e" }}>Pending Access Requests ({pendingRequests.length})</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", color: "#f59e0b" }}><BellIcon size={20} color="#f59e0b" /></span>
+                        <span style={{ fontWeight: "700", fontSize: "15px", color: "var(--text-main, #92400e)" }}>Pending Access Requests ({pendingRequests.length})</span>
                     </div>
                     {pendingRequests.map(doc => (
-                        <div key={doc._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fff", borderRadius: "8px", padding: "10px 16px", border: "1px solid #fde68a", marginBottom: "8px" }}>
-                            <div><span style={{ fontWeight: "600", fontSize: "14px" }}>{doc.description || "Untitled"}</span></div>
+                        <div key={doc._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--ui-surface, #fff)", borderRadius: "8px", padding: "10px 16px", border: "1px solid var(--ui-border, #fde68a)", marginBottom: "8px" }}>
+                            <div><span style={{ fontWeight: "600", fontSize: "14px", color: "var(--text-main)" }}>{doc.description || "Untitled"}</span></div>
                             <button onClick={() => setGrantPopup({ doc })} className="btn btn-primary">Grant Access</button>
                         </div>
                     ))}
@@ -545,10 +545,11 @@ export default function Document() {
             )}
 
             {grantPopup && (
-                <div onClick={() => setGrantPopup(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 10001, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <div onClick={e => e.stopPropagation()} style={{ background: "#fff", padding: "30px", borderRadius: "16px", textAlign: "center" }}>
-                        <h3>Grant Access?</h3>
-                        <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+                <div onClick={() => setGrantPopup(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 10001, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div onClick={e => e.stopPropagation()} style={{ background: "var(--ui-surface, #fff)", border: "1px solid var(--ui-border, #e2e8f0)", padding: "30px", borderRadius: "16px", textAlign: "center", color: "var(--text-main)" }}>
+                        <h3 style={{ margin: "0 0 10px 0", color: "var(--text-main)" }}>Grant Access?</h3>
+                        <p style={{ margin: "0 0 20px 0", color: "var(--text-muted)", fontSize: "14px" }}>Are you sure you want to grant access to this document?</p>
+                        <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
                             <button onClick={() => setGrantPopup(null)} className="btn btn-secondary">Cancel</button>
                             <button onClick={() => grantAccess(grantPopup.doc._id)} className="btn btn-primary">Yes, Grant</button>
                         </div>
@@ -644,15 +645,16 @@ export default function Document() {
 
                 <div style={{ marginTop: '20px' }}>
                     <label style={labelStyle}>Assign Members</label>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', maxHeight: '120px', overflowY: 'auto', border: '1px solid #e5e7eb', padding: '10px', borderRadius: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', maxHeight: '120px', overflowY: 'auto', border: '1px solid var(--ui-border, #e5e7eb)', background: 'var(--ui-bg, #f8fafc)', padding: '10px', borderRadius: '8px' }}>
                         {projectMembers.map(m => (
                             <div 
                                 key={m._id} 
                                 onClick={() => toggleMember(m._id)}
                                 style={{
                                     padding: '4px 12px', borderRadius: '20px', fontSize: '12px', cursor: 'pointer',
-                                    background: form.assignedTo.includes(m._id) ? 'var(--primary-color)' : '#f3f4f6',
-                                    color: form.assignedTo.includes(m._id) ? '#fff' : '#374151'
+                                    background: form.assignedTo.includes(m._id) ? 'var(--primary-color)' : 'var(--ui-surface, #f3f4f6)',
+                                    color: form.assignedTo.includes(m._id) ? '#fff' : 'var(--text-main, #374151)',
+                                    border: `1px solid ${form.assignedTo.includes(m._id) ? 'var(--primary-color)' : 'var(--ui-border, #e2e8f0)'}`
                                 }}
                             >
                                 {m.name}

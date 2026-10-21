@@ -18,14 +18,34 @@ export default function Team() {
                 const res = await API.get("/staff");
                 const allStaff = res.data.staff || res.data || [];
                 
-                if (selectedProject && selectedProject.assignedTo && selectedProject.assignedTo.length > 0) {
-                    const assignedIds = selectedProject.assignedTo.map(u => u._id || u);
-                    const filtered = allStaff.filter(s => assignedIds.includes(s._id));
-                    setMembers(filtered);
-                } else if (!selectedProject) {
-                    setMembers(allStaff);
+                if (selectedProject) {
+                    let projectData = selectedProject;
+                    const projId = selectedProject._id || selectedProject.id;
+                    if (projId) {
+                        try {
+                            const pRes = await API.get(`/projects/${projId}`);
+                            if (pRes.data) projectData = pRes.data;
+                        } catch (err) {
+                            console.warn("Could not reload single project:", err);
+                        }
+                    }
+
+                    const assignedList = projectData.assignedTo || projectData.assigned_to || [];
+                    if (assignedList.length > 0) {
+                        const assignedIds = assignedList.map(u => String(u._id || u.id || u));
+                        const assignedEmails = assignedList.map(u => (u.email || "").toLowerCase()).filter(Boolean);
+                        const filtered = allStaff.filter(s => {
+                            const sId = String(s._id || s.id || "");
+                            const sEmail = (s.email || "").toLowerCase();
+                            return (sId && assignedIds.includes(sId)) || (sEmail && assignedEmails.includes(sEmail));
+                        });
+                        setMembers(filtered.length > 0 ? filtered : assignedList);
+                    } else {
+                        // If no specific assigned staff found, show all organization staff assigned to this company
+                        setMembers(allStaff);
+                    }
                 } else {
-                    setMembers([]);
+                    setMembers(allStaff);
                 }
             } catch (e) {
                 console.error(e);

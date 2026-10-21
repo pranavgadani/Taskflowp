@@ -28,6 +28,7 @@ import Leave from "./pages/Leave";
 import Timesheet from "./pages/Timesheet";
 import Rating from "./pages/Rating";
 import BreakManagement from "./pages/BreakManagement";
+import Tickets from "./pages/Tickets";
 
 import { CompanyProvider } from "./contexts/CompanyContext";
 
@@ -77,7 +78,8 @@ function AppRoutes() {
         <Route path="dashboard" element={<Navigate to="/" replace />} />
         <Route path="projects" element={<Navigate to="/project" replace />} />
         <Route path="tasks" element={<Navigate to="/task" replace />} />
-        <Route path="issues" element={<Navigate to="/issue" replace />} />
+        <Route path="issues" element={<Navigate to="/task" replace />} />
+        <Route path="issue" element={<Navigate to="/task" replace />} />
         <Route path="timesheets" element={<Navigate to="/timesheet" replace />} />
         <Route path="staff" element={hasPermission("staff_management", "read") ? <Staff /> : <Navigate to="/" />} />
         <Route path="task" element={hasPermission("task_management", "read") ? <Task key="task-page" /> : <Navigate to="/" />} />
@@ -86,7 +88,6 @@ function AppRoutes() {
         <Route path="permission" element={hasPermission("permission_management", "read") ? <Permission /> : <Navigate to="/" />} />
         <Route path="task-status" element={hasPermission("task_status_management", "read") ? <TaskStatus /> : <Navigate to="/" />} />
         <Route path="team" element={hasPermission("project_management", "read") ? <Team /> : <Navigate to="/" />} />
-        <Route path="issue" element={hasPermission("issue", "read") ? <Task key="issue-page" isIssue={true} /> : <Navigate to="/" />} />
         <Route path="document" element={hasPermission("document", "read") ? <Document /> : <Navigate to="/" />} />
         <Route path="attendance" element={hasPermission("attendance_management", "read") ? <Attendance /> : <Navigate to="/" />} />
         <Route path="qa" element={<QA />} />
@@ -94,6 +95,7 @@ function AppRoutes() {
         <Route path="timesheet" element={<Timesheet />} />
         <Route path="rating" element={<Rating />} />
         <Route path="breaks" element={<BreakManagement />} />
+        <Route path="tickets" element={<Tickets />} />
         <Route path="profile" element={<Profile />} />
         <Route path="policies" element={<Navigate to="/profile?tab=policies" replace />} />
         <Route path="chat" element={<Chat />} />

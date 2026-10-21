@@ -284,8 +284,15 @@ export default function QAManagement() {
 
       {/* CONTENT: TEST CASES TABLE */}
       {activeTab === "testcases" && (
-        <div style={{ background: "#fff", borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+        <div className="table-container" style={{ background: "#fff", borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+            <span style={{ fontWeight: "700", color: "#1e293b", fontSize: "14px" }}>Test Cases Repository</span>
+            <span className="mobile-scroll-hint" style={{ fontSize: "11px", color: "#4f46e5", fontWeight: "600", background: "#eef2ff", padding: "3px 8px", borderRadius: "6px" }}>
+              ⇄ Swipe table horizontally
+            </span>
+          </div>
+          <div style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+            <table style={{ width: "100%", minWidth: "750px", borderCollapse: "collapse", textAlign: "left" }}>
             <thead>
               <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#475569", fontSize: "13px" }}>
                 <th style={{ padding: "14px 16px" }}>Test Case</th>
@@ -367,13 +374,21 @@ export default function QAManagement() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {/* CONTENT: QA BUGS TABLE */}
       {activeTab === "bugs" && (
-        <div style={{ background: "#fff", borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+        <div className="table-container" style={{ background: "#fff", borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+            <span style={{ fontWeight: "700", color: "#1e293b", fontSize: "14px" }}>Defect Tracking Board</span>
+            <span className="mobile-scroll-hint" style={{ fontSize: "11px", color: "#dc2626", fontWeight: "600", background: "#fef2f2", padding: "3px 8px", borderRadius: "6px" }}>
+              ⇄ Swipe table horizontally
+            </span>
+          </div>
+          <div style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+            <table style={{ width: "100%", minWidth: "750px", borderCollapse: "collapse", textAlign: "left" }}>
             <thead>
               <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#475569", fontSize: "13px" }}>
                 <th style={{ padding: "14px 16px" }}>Bug Details</th>
@@ -448,6 +463,7 @@ export default function QAManagement() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

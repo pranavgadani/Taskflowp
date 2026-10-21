@@ -3,6 +3,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const mongoose = require("mongoose");
+mongoose.set("bufferCommands", false);
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 
@@ -64,25 +65,39 @@ io.on("connection", (socket) => {
       const { conversationId, text, senderId, senderName, senderImage } = data;
       if (!conversationId || !text || !senderId) return;
 
-      const msg = await Message.create({
+      const { pool } = require("./config/mysqlDb");
+      const msgId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      const readBy = JSON.stringify([senderId]);
+
+      await pool.query(
+        `INSERT INTO chat_messages (id, conversation_id, sender_id, sender_name, sender_image, text, read_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [msgId, conversationId, senderId, senderName || "", senderImage || "", text, readBy]
+      );
+
+      const lastMsg = JSON.stringify({
+        text,
+        senderId,
+        senderName: senderName || "",
+        sentAt: new Date()
+      });
+
+      await pool.query(
+        `UPDATE chat_conversations SET last_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [lastMsg, conversationId]
+      );
+
+      const msg = {
+        _id: msgId,
+        id: msgId,
         conversationId,
-        sender: senderId,
+        sender: { _id: senderId, id: senderId, name: senderName || "", image: senderImage || "" },
         senderName: senderName || "",
         senderImage: senderImage || "",
         text,
         readBy: [senderId],
-      });
-
-      // Update conversation lastMessage
-      await Conversation.findByIdAndUpdate(conversationId, {
-        lastMessage: {
-          text,
-          senderId,
-          senderName: senderName || "",
-          sentAt: new Date(),
-        },
-        updatedAt: new Date(),
-      });
+        createdAt: new Date()
+      };
 
       // Emit to all in room including sender
       io.to(`conv_${conversationId}`).emit("new_message", msg);
@@ -136,6 +151,7 @@ app.use("/api/leave", leaveRoutes);
 app.use("/api/ratings", ratingRoutes);
 app.use("/api/breaks", breakRoutes);
 app.use("/api/timesheets", require("./routes/timesheetRoutes"));
+app.use("/api/tickets", require("./routes/ticketRoutes"));
 
 // Get current user permissions
 app.get("/api/user-permissions", authMiddleware, getUserPermissions);
@@ -146,59 +162,19 @@ app.get("/", (req, res) => {
 
 // Connect Databases
 const { initDB } = require("./config/mysqlDb");
-const { registerMySQLSyncPlugin } = require("./config/syncMySQL");
-
-// Apply MySQL sync plugin to all mongoose schemas
-mongoose.plugin(registerMySQLSyncPlugin);
+const seedMySQLDefaults = require("./config/seedMySQLDefaults");
 
 async function startServer() {
   try {
     // 1. Initialize MySQL taskflow_db tables
     await initDB();
 
-    // 2. Connect DB engine
-    let mongoUri = process.env.MONGO_URI || process.env.MONGO_URL;
-    if (!mongoUri) {
-      try {
-        const { MongoMemoryServer } = require("mongodb-memory-server");
-        const path = require("path");
-        const fs = require("fs");
-        const binaryDir = path.join(__dirname, "../.mongo-bin");
-        const dbPath = path.join(__dirname, "../.mongo-data");
-        if (!fs.existsSync(binaryDir)) fs.mkdirSync(binaryDir, { recursive: true });
-        if (!fs.existsSync(dbPath)) fs.mkdirSync(dbPath, { recursive: true });
+    // 2. Seed MySQL roles, permissions, and statuses
+    await seedMySQLDefaults();
+    console.log("✅ Pure MySQL (taskflow_db) connected & seeded successfully!");
 
-        const mongod = await MongoMemoryServer.create({
-          binary: {
-            downloadDir: binaryDir,
-            version: "6.0.14"
-          },
-          instance: {
-            dbPath: dbPath
-          }
-        });
-        mongoUri = mongod.getUri();
-        console.log("⚡ In-Memory Mongo Engine started on D: drive (Zero-Setup)");
-      } catch (e) {
-        console.warn("MongoMemoryServer fallback error:", e.message);
-        mongoUri = "mongodb://127.0.0.1:27017/taskmanager";
-      }
-    }
-
-    await mongoose.connect(mongoUri);
-    console.log("✅ Database Engine Connected & Synced with MySQL taskflow_db");
-
-    await seedDefaults();
-    await createSuperAdmin();
-    try {
-      const seedDummyData = require("./seedData");
-      await seedDummyData();
-    } catch (sErr) {
-      console.warn("Seed dummy note:", sErr.message);
-    }
-
-    // Start server after DB connection
-    server.listen(5000, () => console.log("🚀 Server running on port 5000 with Socket.io & MySQL (taskflow_db) ⚡"));
+    // Start server directly with MySQL
+    server.listen(5000, () => console.log("🚀 Server running on port 5000 with Socket.io & Pure MySQL (taskflow_db) ⚡"));
   } catch (err) {
     console.error("❌ Startup Error:", err);
     process.exit(1);

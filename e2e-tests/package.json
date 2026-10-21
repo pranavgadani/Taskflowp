@@ -1,17 +1,23 @@
 {
   "name": "taskflow-e2e-tests",
-  "version": "1.0.0",
-  "description": "Playwright E2E automation test suite for TaskFlow",
+  "version": "2.0.0",
+  "description": "Playwright E2E automation test suite for TaskFlow — Senior QA grade coverage",
   "main": "index.js",
   "scripts": {
     "test": "playwright test",
     "test:smoke": "playwright test --grep @smoke",
+    "test:auth": "playwright test --grep @auth",
     "test:rbac": "playwright test --grep @rbac",
     "test:hr": "playwright test --grep @hr",
+    "test:modules": "playwright test --grep @modules",
+    "test:api": "playwright test --grep @api",
     "test:sync": "playwright test --grep @sync",
+    "test:realtime": "playwright test --grep @realtime",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
-    "report": "playwright show-report"
+    "test:debug": "playwright test --debug",
+    "report": "playwright show-report",
+    "setup": "playwright test --project=setup"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0",

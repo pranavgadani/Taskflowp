@@ -915,8 +915,9 @@ export default function BreakManagement() {
               No breaks recorded for {myBreakDate === new Date().toISOString().slice(0, 10) ? "today" : myBreakDate}.
             </div>
           ) : (
-            <div style={{ background: "var(--card-bg, #fff)", borderRadius: "14px", overflow: "hidden", border: "1px solid var(--border-color, #e5e7eb)", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
+            <div className="table-container" style={{ background: "var(--card-bg, #fff)", borderRadius: "14px", overflow: "hidden", border: "1px solid var(--border-color, #e5e7eb)", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+              <div style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                <table style={{ width: "100%", minWidth: "600px", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
                 <thead>
                   <tr style={{ background: "var(--neu-bg, #f8fafc)", borderBottom: "1px solid var(--border-color, #e2e8f0)", color: "var(--text-muted)" }}>
                     <th style={{ padding: "12px 18px", fontWeight: "600" }}>Break Type</th>
@@ -965,6 +966,7 @@ export default function BreakManagement() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>
@@ -1272,9 +1274,9 @@ export default function BreakManagement() {
                   width: "100%",
                   padding: "8px 12px",
                   borderRadius: "8px",
-                  border: "1px solid var(--border-color, #e2e8f0)",
-                  background: "#f1f5f9",
-                  color: "#64748b",
+                  border: "1px solid var(--ui-border, #e2e8f0)",
+                  background: "var(--ui-bg, #f1f5f9)",
+                  color: "var(--text-muted, #64748b)",
                   fontSize: "14px",
                   fontWeight: "600",
                   cursor: "not-allowed",
@@ -1289,17 +1291,17 @@ export default function BreakManagement() {
             style={{
               padding: "10px 14px",
               borderRadius: "8px",
-              background: "rgba(99, 102, 241, 0.08)",
-              border: "1px solid rgba(99, 102, 241, 0.2)",
+              background: "rgba(99, 102, 241, 0.12)",
+              border: "1px solid rgba(99, 102, 241, 0.3)",
               fontSize: "13px",
-              color: "#4f46e5",
+              color: "var(--primary-color, #4f46e5)",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between"
             }}
           >
-            <span>Effective Break Window:</span>
-            <strong>
+            <span style={{ color: "var(--text-muted, #94a3b8)" }}>Effective Break Window:</span>
+            <strong style={{ color: "var(--primary-color, #818cf8)" }}>
               {format12Hour(typeForm.window_start)} – {format12Hour(typeForm.window_end)} ({typeForm.duration_minutes || 0} mins)
             </strong>
           </div>

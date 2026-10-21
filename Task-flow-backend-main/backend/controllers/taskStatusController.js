@@ -1,46 +1,10 @@
-const TaskStatus = require("../models/TaskStatus");
+const { pool } = require("../config/mysqlDb");
 
 exports.getAll = async (req, res) => {
   try {
-    const isSuperAdmin = req.user?.email === "gadanipranav@gmail.com" || req.user?.role?.name === "Super Admin";
-    const companyId = req.user?.companyId?._id || req.user?.companyId || null;
-
-    let filter = {};
-    const targetCompanyId = isSuperAdmin ? (req.query.companyId && req.query.companyId !== "undefined" ? req.query.companyId : null) : companyId;
-
-    if (targetCompanyId) {
-        filter.$or = [
-            { companyId: targetCompanyId },
-            { companyId: null }
-        ];
-    } else {
-        // If no specifically targeted company, we still want to see global ones
-        // but for superadmin we usually want to see EVERYTHING.
-        if (!isSuperAdmin) {
-            filter.companyId = null; // Should never happen based on auth
-        }
-    }
-
-    if (req.query.project && req.query.project !== "undefined") {
-        const projectQuery = {
-            $or: [
-                { project: req.query.project },
-                { project: null },
-                { project: { $exists: false } }
-            ]
-        };
-        
-        if (filter.$or) {
-            filter = { $and: [ { $or: filter.$or }, projectQuery ] };
-        } else {
-            filter = projectQuery;
-        }
-    }
-
-    const data = await TaskStatus.find(filter).populate("project");
-    res.json(data);
+    const [rows] = await pool.query("SELECT id as _id, id, name, status, project_id as project FROM task_statuses ORDER BY id ASC");
+    res.json(rows);
   } catch (err) {
-    console.log(err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -48,50 +12,32 @@ exports.getAll = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const { name, status, project } = req.body;
-    const isSuperAdmin = req.user.email === (process.env.SUPERADMIN_EMAIL || "gadanipranav@gmail.com") || req.user.role?.name === "Super Admin";
-    let companyId = req.user.companyId?._id || req.user.companyId;
+    if (!name) return res.status(400).json({ message: "Name required" });
 
-    if (isSuperAdmin && !companyId) {
-      companyId = req.body.companyId || req.query.companyId || null;
-    }
+    const id = `status_${Date.now()}`;
+    await pool.query(
+      "INSERT INTO task_statuses (id, name, status, project_id) VALUES (?, ?, ?, ?)",
+      [id, name, status || "Active", project || null]
+    );
 
-    if (!name) {
-      return res.status(400).json({ message: "Name required" });
-    }
-
-    const newStatus = new TaskStatus({
-      name,
-      status: status || "Active",
-      project: project || null,
-      companyId: companyId
-    });
-
-    await newStatus.save();
-
-    res.json(newStatus);
+    res.json({ _id: id, id, name, status: status || "Active", project: project || null });
   } catch (err) {
-    console.log("CREATE ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
 exports.update = async (req, res) => {
   try {
-    const isSuperAdmin = req.user.email === "gadanipranav@gmail.com" || req.user.role?.name === "Super Admin";
-    const companyId = req.user.companyId?._id || req.user.companyId;
-
-    const query = { _id: req.params.id };
-    if (!isSuperAdmin) query.companyId = companyId;
-
-    const data = await TaskStatus.findOneAndUpdate(
-      query,
-      req.body,
-      { returnDocument: 'after' }
+    const { name, status, project } = req.body;
+    await pool.query(
+      "UPDATE task_statuses SET name = COALESCE(?, name), status = COALESCE(?, status), project_id = COALESCE(?, project_id) WHERE id = ?",
+      [name, status, project, req.params.id]
     );
-    
-    if (!data) return res.status(404).json({ error: "Task Status not found" });
-    
-    res.json(data);
+
+    const [rows] = await pool.query("SELECT id as _id, id, name, status, project_id as project FROM task_statuses WHERE id = ?", [req.params.id]);
+    if (!rows || rows.length === 0) return res.status(404).json({ error: "Task Status not found" });
+
+    res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -99,15 +45,7 @@ exports.update = async (req, res) => {
 
 exports.remove = async (req, res) => {
   try {
-    const isSuperAdmin = req.user.email === "gadanipranav@gmail.com" || req.user.role?.name === "Super Admin";
-    const companyId = req.user.companyId?._id || req.user.companyId;
-
-    const query = { _id: req.params.id };
-    if (!isSuperAdmin) query.companyId = companyId;
-
-    const data = await TaskStatus.findOneAndDelete(query);
-    if (!data) return res.status(404).json({ error: "Task Status not found" });
-
+    await pool.query("DELETE FROM task_statuses WHERE id = ?", [req.params.id]);
     res.json({ message: "Deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });

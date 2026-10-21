@@ -1,37 +1,72 @@
 const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../middleware/auth");
-const Conversation = require("../models/Conversation");
-const Message = require("../models/Message");
-const Staff = require("../models/Staff");
+const { pool } = require("../config/mysqlDb");
 
-// ─── Helper: get companyId ───────────────────────────────────────────────────
-const getCompanyId = (req) => {
-  const c = req.query.companyId || req.body.companyId || req.user?.companyId?._id?.toString() || req.user?.companyId?.toString();
-  if (!c || c === "undefined" || c === "null" || c === "") return null;
-  return c;
-};
+// Helper: parse JSON safely
+function safeJson(val, defaultVal = []) {
+  if (!val) return defaultVal;
+  if (typeof val === "object") return val;
+  try {
+    return JSON.parse(val);
+  } catch (e) {
+    return defaultVal;
+  }
+}
+
+// Helper: format conversation row with staff objects
+async function populateConversations(convRows) {
+  if (!convRows || convRows.length === 0) return [];
+  const [staffRows] = await pool.query("SELECT id, name, email, image, position FROM staff");
+  const staffMap = new Map();
+  staffRows.forEach((s) => {
+    staffMap.set(s.id, { _id: s.id, id: s.id, name: s.name, email: s.email, image: s.image || "", position: s.position || "Staff" });
+  });
+
+  return convRows.map((c) => {
+    const participantIds = safeJson(c.participants, []);
+    const participants = participantIds.map((pid) => staffMap.get(pid) || { _id: pid, id: pid, name: "User", email: "" });
+    const createdBy = staffMap.get(c.created_by) || { _id: c.created_by, id: c.created_by, name: "User" };
+
+    return {
+      _id: c.id,
+      id: c.id,
+      type: c.type || "direct",
+      name: c.name || "",
+      participants,
+      clientParticipants: safeJson(c.client_participants, []),
+      createdBy,
+      lastMessage: safeJson(c.last_message, null),
+      isArchived: Boolean(c.is_archived),
+      createdAt: c.created_at,
+      updatedAt: c.updated_at
+    };
+  });
+}
 
 // ═══════════════════════════════════════════
 //  CONVERSATIONS
 // ═══════════════════════════════════════════
 
-// GET  /api/chat/conversations  — list current user's conversations
+// GET /api/chat/conversations — list current user's conversations
 router.get("/conversations", authMiddleware, async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user._id ? req.user._id.toString() : req.user.id.toString();
 
-    const query = {
-      participants: userId,
-      isArchived: false,
-    };
+    const [rows] = await pool.query(
+      `SELECT * FROM chat_conversations 
+       WHERE is_archived = 0 
+       ORDER BY updated_at DESC`
+    );
 
-    const convos = await Conversation.find(query)
-      .sort({ updatedAt: -1 })
-      .populate("participants", "name email image position")
-      .populate("createdBy", "name email image");
+    // Filter conversations where user is a participant
+    const userConvs = rows.filter((c) => {
+      const parts = safeJson(c.participants, []);
+      return parts.includes(userId);
+    });
 
-    res.json(convos);
+    const populated = await populateConversations(userConvs);
+    res.json(populated);
   } catch (err) {
     console.error("GET /conversations error:", err);
     res.status(500).json({ message: "Server error" });
@@ -42,30 +77,33 @@ router.get("/conversations", authMiddleware, async (req, res) => {
 router.post("/conversations/direct", authMiddleware, async (req, res) => {
   try {
     const { targetUserId } = req.body;
-    const companyId = getCompanyId(req);
-    const userId = req.user._id;
+    const userId = req.user._id ? req.user._id.toString() : req.user.id.toString();
 
     if (!targetUserId) return res.status(400).json({ message: "targetUserId required" });
-    if (targetUserId.toString() === userId.toString())
+    if (targetUserId.toString() === userId) {
       return res.status(400).json({ message: "Cannot chat with yourself" });
-
-    // Check if direct conversation already exists
-    let convo = await Conversation.findOne({
-      type: "direct",
-      participants: { $all: [userId, targetUserId], $size: 2 },
-    }).populate("participants", "name email image position");
-
-    if (!convo) {
-      convo = await Conversation.create({
-        type: "direct",
-        participants: [userId, targetUserId],
-        createdBy: userId,
-        companyId: companyId || undefined,
-      });
-      convo = await convo.populate("participants", "name email image position");
     }
 
-    res.json(convo);
+    const [rows] = await pool.query("SELECT * FROM chat_conversations WHERE type = 'direct'");
+    let existing = rows.find((c) => {
+      const parts = safeJson(c.participants, []);
+      return parts.length === 2 && parts.includes(userId) && parts.includes(targetUserId.toString());
+    });
+
+    if (!existing) {
+      const id = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      const participants = JSON.stringify([userId, targetUserId.toString()]);
+      await pool.query(
+        `INSERT INTO chat_conversations (id, type, participants, created_by, company_id)
+         VALUES (?, 'direct', ?, ?, ?)`,
+        [id, participants, userId, req.user.companyId?._id || req.user.companyId || "default_company"]
+      );
+      const [newRows] = await pool.query("SELECT * FROM chat_conversations WHERE id = ?", [id]);
+      existing = newRows[0];
+    }
+
+    const [populated] = await populateConversations([existing]);
+    res.json(populated);
   } catch (err) {
     console.error("POST /conversations/direct error:", err);
     res.status(500).json({ message: "Server error" });
@@ -75,34 +113,23 @@ router.post("/conversations/direct", authMiddleware, async (req, res) => {
 // POST /api/chat/conversations/group — create group conversation
 router.post("/conversations/group", authMiddleware, async (req, res) => {
   try {
-    const { name, participantIds, clientParticipants, projectId } = req.body;
-    const companyId = getCompanyId(req);
-    const userId = req.user._id;
-
-    // Only owners / super admin can add clients
-    const userRole = req.user?.role?.name;
-    const isOwnerOrAdmin =
-      req.user?.email === "gadanipranav@gmail.com" ||
-      userRole === "Super Admin" ||
-      userRole === "Company Owner";
+    const { name, participantIds } = req.body;
+    const userId = req.user._id ? req.user._id.toString() : req.user.id.toString();
 
     const allParticipants = [
-      userId.toString(),
-      ...(participantIds || []).filter((id) => id.toString() !== userId.toString()),
+      userId,
+      ...(participantIds || []).map((id) => id.toString()).filter((id) => id !== userId),
     ];
 
-    const convo = await Conversation.create({
-      type: "group",
-      name: name || "Group Chat",
-      participants: allParticipants,
-      clientParticipants:
-        isOwnerOrAdmin && Array.isArray(clientParticipants) ? clientParticipants : [],
-      createdBy: userId,
-      companyId: companyId || undefined,
-      projectId: projectId || null,
-    });
+    const id = `conv_grp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    await pool.query(
+      `INSERT INTO chat_conversations (id, type, name, participants, created_by, company_id)
+       VALUES (?, 'group', ?, ?, ?, ?)`,
+      [id, name || "Group Chat", JSON.stringify(allParticipants), userId, req.user.companyId?._id || req.user.companyId || "default_company"]
+    );
 
-    const populated = await convo.populate("participants", "name email image position");
+    const [rows] = await pool.query("SELECT * FROM chat_conversations WHERE id = ?", [id]);
+    const [populated] = await populateConversations(rows);
     res.status(201).json(populated);
   } catch (err) {
     console.error("POST /conversations/group error:", err);
@@ -110,172 +137,123 @@ router.post("/conversations/group", authMiddleware, async (req, res) => {
   }
 });
 
-// PUT /api/chat/conversations/:id/add-client — add client (project owner only)
-router.put("/conversations/:id/add-client", authMiddleware, async (req, res) => {
-  try {
-    const { name, email } = req.body;
-
-    const userRole = req.user?.role?.name;
-    const isOwnerOrAdmin =
-      req.user?.email === "gadanipranav@gmail.com" ||
-      userRole === "Super Admin" ||
-      userRole === "Company Owner";
-
-    if (!isOwnerOrAdmin)
-      return res.status(403).json({ message: "Only project owners can add clients" });
-
-    if (!name || !email) return res.status(400).json({ message: "Name and email required" });
-
-    const convo = await Conversation.findById(req.params.id);
-    if (!convo) return res.status(404).json({ message: "Conversation not found" });
-
-    const alreadyExists = convo.clientParticipants.some(
-      (c) => c.email.toLowerCase() === email.toLowerCase()
-    );
-    if (alreadyExists) return res.status(400).json({ message: "Client already added" });
-
-    convo.clientParticipants.push({ name, email });
-    await convo.save();
-
-    res.json(convo);
-  } catch (err) {
-    console.error("PUT /add-client error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// PUT /api/chat/conversations/:id/remove-client — remove client (project owner only)
-router.put("/conversations/:id/remove-client", authMiddleware, async (req, res) => {
-  try {
-    const { clientId } = req.body;
-
-    const userRole = req.user?.role?.name;
-    const isOwnerOrAdmin =
-      req.user?.email === "gadanipranav@gmail.com" ||
-      userRole === "Super Admin" ||
-      userRole === "Company Owner";
-
-    if (!isOwnerOrAdmin)
-      return res.status(403).json({ message: "Only project owners can remove clients" });
-
-    const convo = await Conversation.findById(req.params.id);
-    if (!convo) return res.status(404).json({ message: "Conversation not found" });
-
-    convo.clientParticipants = convo.clientParticipants.filter(
-      (c) => c._id.toString() !== clientId
-    );
-    await convo.save();
-
-    res.json(convo);
-  } catch (err) {
-    console.error("PUT /remove-client error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// DELETE /api/chat/conversations/:id
-router.delete("/conversations/:id", authMiddleware, async (req, res) => {
-  try {
-    const convo = await Conversation.findById(req.params.id);
-    if (!convo) return res.status(404).json({ message: "Conversation not found" });
-
-    // Only creator or admin can delete
-    const isSuperAdmin = req.user?.email === "gadanipranav@gmail.com" || req.user?.role?.name === "Super Admin";
-    if (!isSuperAdmin && convo.createdBy.toString() !== req.user._id.toString())
-      return res.status(403).json({ message: "Not authorized to delete this conversation" });
-
-    await Message.deleteMany({ conversationId: req.params.id });
-    await convo.deleteOne();
-
-    res.json({ message: "Conversation deleted" });
-  } catch (err) {
-    console.error("DELETE /conversations/:id error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// ═══════════════════════════════════════════
-//  MESSAGES
-// ═══════════════════════════════════════════
-
-// GET  /api/chat/conversations/:id/messages
+// GET /api/chat/conversations/:id/messages
 router.get("/conversations/:id/messages", authMiddleware, async (req, res) => {
   try {
-    const { page = 1, limit = 50 } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const convId = req.params.id;
+    const userId = req.user._id ? req.user._id.toString() : req.user.id.toString();
 
-    const messages = await Message.find({
-      conversationId: req.params.id,
-      isDeleted: false,
-    })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .populate("sender", "name email image");
-
-    // Mark as read
-    await Message.updateMany(
-      { conversationId: req.params.id, readBy: { $ne: req.user._id } },
-      { $addToSet: { readBy: req.user._id } }
+    const [messages] = await pool.query(
+      `SELECT * FROM chat_messages WHERE conversation_id = ? ORDER BY created_at ASC`,
+      [convId]
     );
 
-    res.json(messages.reverse());
+    const formatted = messages.map((m) => ({
+      _id: m.id,
+      id: m.id,
+      conversationId: m.conversation_id,
+      sender: {
+        _id: m.sender_id,
+        id: m.sender_id,
+        name: m.sender_name || "User",
+        image: m.sender_image || ""
+      },
+      senderName: m.sender_name,
+      senderImage: m.sender_image,
+      text: m.text,
+      fileUrl: m.file_url,
+      fileName: m.file_name,
+      readBy: safeJson(m.read_by, []),
+      createdAt: m.created_at
+    }));
+
+    res.json(formatted);
   } catch (err) {
     console.error("GET /messages error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// POST /api/chat/conversations/:id/messages — send message (REST fallback)
+// POST /api/chat/conversations/:id/messages
 router.post("/conversations/:id/messages", authMiddleware, async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, fileUrl, fileName } = req.body;
+    const convId = req.params.id;
+    const userId = req.user._id ? req.user._id.toString() : req.user.id.toString();
+    const userName = req.user.name || "User";
+    const userImage = req.user.image || "";
 
-    const convo = await Conversation.findById(req.params.id);
-    if (!convo) return res.status(404).json({ message: "Conversation not found" });
+    const id = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    const readBy = JSON.stringify([userId]);
 
-    const msg = await Message.create({
-      conversationId: req.params.id,
-      sender: req.user._id,
-      senderName: req.user.name,
-      senderImage: req.user.image || "",
+    await pool.query(
+      `INSERT INTO chat_messages (id, conversation_id, sender_id, sender_name, sender_image, text, file_url, file_name, read_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, convId, userId, userName, userImage, text || "", fileUrl || null, fileName || null, readBy]
+    );
+
+    const lastMsg = JSON.stringify({
       text: text || "",
-      readBy: [req.user._id],
+      senderId: userId,
+      senderName: userName,
+      sentAt: new Date()
     });
 
-    // Update lastMessage on conversation
-    convo.lastMessage = {
+    await pool.query(
+      `UPDATE chat_conversations SET last_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [lastMsg, convId]
+    );
+
+    const msgObj = {
+      _id: id,
+      id,
+      conversationId: convId,
+      sender: { _id: userId, id: userId, name: userName, image: userImage },
+      senderName: userName,
+      senderImage: userImage,
       text: text || "",
-      senderId: req.user._id,
-      senderName: req.user.name,
-      sentAt: new Date(),
+      fileUrl,
+      fileName,
+      readBy: [userId],
+      createdAt: new Date()
     };
-    await convo.save();
 
-    const populated = await msg.populate("sender", "name email image");
-
-    // Emit via socket if io is available
     const io = req.app.get("io");
     if (io) {
-      io.to(`conv_${req.params.id}`).emit("new_message", populated);
-      io.to(`conv_${req.params.id}`).emit("conversation_updated", convo);
+      io.to(`conv_${convId}`).emit("new_message", msgObj);
+      io.emit(`conv_updated_${convId}`, { conversationId: convId, lastMessage: JSON.parse(lastMsg) });
     }
 
-    res.status(201).json(populated);
+    res.status(201).json(msgObj);
   } catch (err) {
     console.error("POST /messages error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// GET /api/chat/staff — list all active staff (for new convo)
+// GET /api/chat/staff — list all active staff for starting conversations
 router.get("/staff", authMiddleware, async (req, res) => {
   try {
-    const staff = await Staff.find({ status: "Active" })
-      .select("name email image position role")
-      .populate("role", "name");
+    const [staff] = await pool.query(
+      `SELECT s.id as _id, s.id, s.name, s.email, s.image, s.position,
+              r.id as role_id, r.name as role_name
+       FROM staff s
+       LEFT JOIN roles r ON s.role = r.id OR s.role = r.name
+       WHERE s.status = 'Active'
+       ORDER BY s.name ASC`
+    );
 
-    res.json(staff);
+    const formatted = staff.map((s) => ({
+      _id: s.id,
+      id: s.id,
+      name: s.name,
+      email: s.email,
+      image: s.image || "",
+      position: s.position || "Staff",
+      role: { _id: s.role_id || "role_staff", name: s.role_name || "Staff" }
+    }));
+
+    res.json(formatted);
   } catch (err) {
     console.error("GET /chat/staff error:", err);
     res.status(500).json({ message: "Server error" });
@@ -285,37 +263,30 @@ router.get("/staff", authMiddleware, async (req, res) => {
 // GET /api/chat/unread-counts
 router.get("/unread-counts", authMiddleware, async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user._id ? req.user._id.toString() : req.user.id.toString();
 
-    // Get all conversation ids for user
-    const convos = await Conversation.find({
-      participants: userId,
-      isArchived: false,
-    }).select("_id");
-
-    const convoIds = convos.map((c) => c._id);
-
-    // Count unread per conversation
-    const unreadAgg = await Message.aggregate([
-      {
-        $match: {
-          conversationId: { $in: convoIds },
-          readBy: { $nin: [userId] },
-          isDeleted: false,
-        },
-      },
-      {
-        $group: {
-          _id: "$conversationId",
-          count: { $sum: 1 },
-        },
-      },
-    ]);
+    const [convs] = await pool.query("SELECT id, participants FROM chat_conversations WHERE is_archived = 0");
+    const userConvIds = convs
+      .filter((c) => safeJson(c.participants, []).includes(userId))
+      .map((c) => c.id);
 
     const counts = {};
-    unreadAgg.forEach((a) => {
-      counts[a._id.toString()] = a.count;
-    });
+    for (const cid of userConvIds) {
+      counts[cid] = 0;
+    }
+
+    if (userConvIds.length > 0) {
+      const [msgs] = await pool.query(
+        `SELECT conversation_id, read_by FROM chat_messages WHERE conversation_id IN (${userConvIds.map(() => "?").join(",")})`,
+        userConvIds
+      );
+      msgs.forEach((m) => {
+        const readList = safeJson(m.read_by, []);
+        if (!readList.includes(userId)) {
+          counts[m.conversation_id] = (counts[m.conversation_id] || 0) + 1;
+        }
+      });
+    }
 
     res.json(counts);
   } catch (err) {
@@ -325,4 +296,3 @@ router.get("/unread-counts", authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
-

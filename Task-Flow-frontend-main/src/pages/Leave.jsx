@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import API from "../api/api";
 import { useToast } from "../contexts/ToastContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -23,7 +24,9 @@ export default function LeaveManagement() {
 
   // Initial tab based on role & permissions
   const [activeTab, setActiveTab] = useState(
-    (isSuperAdmin || isCompanyOwner) && canApprove
+    isSuperAdmin
+      ? "approvals"
+      : isCompanyOwner && canApprove
       ? "approvals"
       : canCreate
       ? "apply"
@@ -58,6 +61,24 @@ export default function LeaveManagement() {
     hours: 2,
     reason: ""
   });
+
+  const [searchParams] = useSearchParams();
+
+  // Auto pre-fill if redirected from missed clock-out notice
+  useEffect(() => {
+    const qDate = searchParams.get("date");
+    const qType = searchParams.get("type");
+    if (qDate) {
+      setActiveTab("apply");
+      setLeaveForm(prev => ({
+        ...prev,
+        from_date: qDate,
+        to_date: qDate,
+        day_type: qType || "Second Half",
+        reason: `Auto Clock Out on ${qDate} - Applied for Second Half Leave`
+      }));
+    }
+  }, [searchParams]);
 
   const fetchBalance = async () => {
     try {
@@ -174,6 +195,10 @@ export default function LeaveManagement() {
   // Submit Leave
   const handleApplyLeave = async (e) => {
     e.preventDefault();
+    if (new Date(leaveForm.to_date) < new Date(leaveForm.from_date)) {
+      showToast("'To Date' cannot be earlier than 'From Date'!", "error");
+      return;
+    }
     try {
       const res = await API.post("/leave/apply", leaveForm);
       showToast(res.data.message || "Leave applied!");
@@ -255,71 +280,71 @@ export default function LeaveManagement() {
       {(isSuperAdmin || isCompanyOwner) ? (
         /* SUPER ADMIN / OWNER OVERVIEW CARDS */
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "28px" }}>
-          <div style={{ background: "#ffffff", padding: "18px 20px", borderRadius: "12px", border: "1px solid #fed7aa", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <div style={{ fontSize: "12px", fontWeight: "700", color: "#ea580c", textTransform: "uppercase" }}>Pending Approval</div>
-            <div style={{ fontSize: "28px", fontWeight: "800", color: "#c2410c", marginTop: "4px" }}>
-              {adminSummary.pendingCount} <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "500" }}>Requests</span>
+          <div style={{ background: "var(--ui-surface, #ffffff)", padding: "18px 20px", borderRadius: "12px", border: "1px solid var(--ui-border, #fed7aa)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+            <div style={{ fontSize: "12px", fontWeight: "700", color: "#f97316", textTransform: "uppercase" }}>Pending Approval</div>
+            <div style={{ fontSize: "28px", fontWeight: "800", color: "#fb923c", marginTop: "4px" }}>
+              {adminSummary.pendingCount} <span style={{ fontSize: "14px", color: "var(--text-muted, #64748b)", fontWeight: "500" }}>Requests</span>
             </div>
-            <div style={{ fontSize: "12px", color: "#9a3412", marginTop: "4px" }}>Requires your review & decision</div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted, #9a3412)", marginTop: "4px" }}>Requires your review & decision</div>
           </div>
 
-          <div style={{ background: "#ffffff", padding: "18px 20px", borderRadius: "12px", border: "1px solid #bbf7d0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <div style={{ fontSize: "12px", fontWeight: "700", color: "#16a34a", textTransform: "uppercase" }}>Approved (This Month)</div>
-            <div style={{ fontSize: "28px", fontWeight: "800", color: "#15803d", marginTop: "4px" }}>
-              {adminSummary.approvedThisMonth} <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "500" }}>Leaves</span>
+          <div style={{ background: "var(--ui-surface, #ffffff)", padding: "18px 20px", borderRadius: "12px", border: "1px solid var(--ui-border, #bbf7d0)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+            <div style={{ fontSize: "12px", fontWeight: "700", color: "#10b981", textTransform: "uppercase" }}>Approved (This Month)</div>
+            <div style={{ fontSize: "28px", fontWeight: "800", color: "#34d399", marginTop: "4px" }}>
+              {adminSummary.approvedThisMonth} <span style={{ fontSize: "14px", color: "var(--text-muted, #64748b)", fontWeight: "500" }}>Leaves</span>
             </div>
-            <div style={{ fontSize: "12px", color: "#166534", marginTop: "4px" }}>Current calendar month</div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted, #166534)", marginTop: "4px" }}>Current calendar month</div>
           </div>
 
-          <div style={{ background: "#ffffff", padding: "18px 20px", borderRadius: "12px", border: "1px solid #bae6fd", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <div style={{ fontSize: "12px", fontWeight: "700", color: "#0284c7", textTransform: "uppercase" }}>On Leave Today</div>
-            <div style={{ fontSize: "28px", fontWeight: "800", color: "#0369a1", marginTop: "4px" }}>
-              {adminSummary.onLeaveToday} <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "500" }}>Staff</span>
+          <div style={{ background: "var(--ui-surface, #ffffff)", padding: "18px 20px", borderRadius: "12px", border: "1px solid var(--ui-border, #bae6fd)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+            <div style={{ fontSize: "12px", fontWeight: "700", color: "#0ea5e9", textTransform: "uppercase" }}>On Leave Today</div>
+            <div style={{ fontSize: "28px", fontWeight: "800", color: "#38bdf8", marginTop: "4px" }}>
+              {adminSummary.onLeaveToday} <span style={{ fontSize: "14px", color: "var(--text-muted, #64748b)", fontWeight: "500" }}>Staff</span>
             </div>
-            <div style={{ fontSize: "12px", color: "#075985", marginTop: "4px" }}>Active on-leave employees today</div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted, #075985)", marginTop: "4px" }}>Active on-leave employees today</div>
           </div>
 
-          <div style={{ background: "#ffffff", padding: "18px 20px", borderRadius: "12px", border: "1px solid #fecaca", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <div style={{ fontSize: "12px", fontWeight: "700", color: "#dc2626", textTransform: "uppercase" }}>Rejected Leaves</div>
-            <div style={{ fontSize: "28px", fontWeight: "800", color: "#b91c1c", marginTop: "4px" }}>
-              {adminSummary.rejectedCount} <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "500" }}>Requests</span>
+          <div style={{ background: "var(--ui-surface, #ffffff)", padding: "18px 20px", borderRadius: "12px", border: "1px solid var(--ui-border, #fecaca)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+            <div style={{ fontSize: "12px", fontWeight: "700", color: "#ef4444", textTransform: "uppercase" }}>Rejected Leaves</div>
+            <div style={{ fontSize: "28px", fontWeight: "800", color: "#f87171", marginTop: "4px" }}>
+              {adminSummary.rejectedCount} <span style={{ fontSize: "14px", color: "var(--text-muted, #64748b)", fontWeight: "500" }}>Requests</span>
             </div>
-            <div style={{ fontSize: "12px", color: "#991b1b", marginTop: "4px" }}>Disapproved requests</div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted, #991b1b)", marginTop: "4px" }}>Disapproved requests</div>
           </div>
         </div>
       ) : (
         /* ALL EMPLOYEES & DEVELOPERS: PERSONAL LEAVE BALANCES (CL, SL, PL, Comp-Off) */
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "28px" }}>
-          <div style={{ background: "#ffffff", padding: "18px 20px", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+          <div style={{ background: "var(--ui-surface, #ffffff)", padding: "18px 20px", borderRadius: "12px", border: "1px solid var(--ui-border, #e2e8f0)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
             <div style={{ fontSize: "12px", fontWeight: "700", color: "#4f46e5", textTransform: "uppercase" }}>Casual Leave (CL)</div>
-            <div style={{ fontSize: "28px", fontWeight: "800", color: "#1e293b", marginTop: "4px" }}>{balance.cl_balance} <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "500" }}>Days</span></div>
-            <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>Annual quota balance</div>
+            <div style={{ fontSize: "28px", fontWeight: "800", color: "var(--text-main, #1e293b)", marginTop: "4px" }}>{balance.cl_balance} <span style={{ fontSize: "14px", color: "var(--text-muted, #64748b)", fontWeight: "500" }}>Days</span></div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted, #94a3b8)", marginTop: "4px" }}>Annual quota balance</div>
           </div>
 
-          <div style={{ background: "#ffffff", padding: "18px 20px", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+          <div style={{ background: "var(--ui-surface, #ffffff)", padding: "18px 20px", borderRadius: "12px", border: "1px solid var(--ui-border, #e2e8f0)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
             <div style={{ fontSize: "12px", fontWeight: "700", color: "#16a34a", textTransform: "uppercase" }}>Sick Leave (SL)</div>
-            <div style={{ fontSize: "28px", fontWeight: "800", color: "#1e293b", marginTop: "4px" }}>{balance.sl_balance} <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "500" }}>Days</span></div>
-            <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>Medical certificate if &gt; 2 days</div>
+            <div style={{ fontSize: "28px", fontWeight: "800", color: "var(--text-main, #1e293b)", marginTop: "4px" }}>{balance.sl_balance} <span style={{ fontSize: "14px", color: "var(--text-muted, #64748b)", fontWeight: "500" }}>Days</span></div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted, #94a3b8)", marginTop: "4px" }}>Medical certificate if &gt; 2 days</div>
           </div>
 
-          <div style={{ background: "#ffffff", padding: "18px 20px", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+          <div style={{ background: "var(--ui-surface, #ffffff)", padding: "18px 20px", borderRadius: "12px", border: "1px solid var(--ui-border, #e2e8f0)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
             <div style={{ fontSize: "12px", fontWeight: "700", color: "#f97316", textTransform: "uppercase" }}>Privilege Leave (PL)</div>
-            <div style={{ fontSize: "28px", fontWeight: "800", color: "#1e293b", marginTop: "4px" }}>{balance.pl_balance} <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "500" }}>Days</span></div>
-            <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>Earned & Planned leaves</div>
+            <div style={{ fontSize: "28px", fontWeight: "800", color: "var(--text-main, #1e293b)", marginTop: "4px" }}>{balance.pl_balance} <span style={{ fontSize: "14px", color: "var(--text-muted, #64748b)", fontWeight: "500" }}>Days</span></div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted, #94a3b8)", marginTop: "4px" }}>Earned & Planned leaves</div>
           </div>
 
-          <div style={{ background: "#ffffff", padding: "18px 20px", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+          <div style={{ background: "var(--ui-surface, #ffffff)", padding: "18px 20px", borderRadius: "12px", border: "1px solid var(--ui-border, #e2e8f0)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
             <div style={{ fontSize: "12px", fontWeight: "700", color: "#06b6d4", textTransform: "uppercase" }}>Comp-Off</div>
-            <div style={{ fontSize: "28px", fontWeight: "800", color: "#1e293b", marginTop: "4px" }}>{balance.comp_off} <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "500" }}>Days</span></div>
-            <div style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>Against weekend work</div>
+            <div style={{ fontSize: "28px", fontWeight: "800", color: "var(--text-main, #1e293b)", marginTop: "4px" }}>{balance.comp_off} <span style={{ fontSize: "14px", color: "var(--text-muted, #64748b)", fontWeight: "500" }}>Days</span></div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted, #94a3b8)", marginTop: "4px" }}>Against weekend work</div>
           </div>
         </div>
       )}
 
       {/* TABS */}
-      <div style={{ display: "flex", gap: "12px", borderBottom: "1px solid #e2e8f0", marginBottom: "20px", flexWrap: "wrap" }}>
-        {/* TAB 1: Apply Leave (Requires Create Permission) */}
-        {canCreate && (
+      <div style={{ display: "flex", gap: "12px", borderBottom: "1px solid var(--ui-border, #e2e8f0)", marginBottom: "20px", flexWrap: "wrap" }}>
+        {/* TAB 1: Apply Leave (Employees/Managers only — Super Admin does not apply leave) */}
+        {!isSuperAdmin && canCreate && (
           <button
             onClick={() => setActiveTab("apply")}
             style={{
@@ -328,7 +353,7 @@ export default function LeaveManagement() {
               border: "none",
               borderBottom: activeTab === "apply" ? "3px solid #4f46e5" : "none",
               fontWeight: activeTab === "apply" ? "700" : "500",
-              color: activeTab === "apply" ? "#4f46e5" : "#64748b",
+              color: activeTab === "apply" ? "#818cf8" : "var(--text-muted, #64748b)",
               cursor: "pointer",
               fontSize: "15px"
             }}
@@ -339,8 +364,8 @@ export default function LeaveManagement() {
           </button>
         )}
 
-        {/* TAB 2: Short Leave (Requires Create Permission) */}
-        {canCreate && (
+        {/* TAB 2: Short Leave (Employees/Managers only — Super Admin does not apply leave) */}
+        {!isSuperAdmin && canCreate && (
           <button
             onClick={() => setActiveTab("shortleave")}
             style={{
@@ -349,7 +374,7 @@ export default function LeaveManagement() {
               border: "none",
               borderBottom: activeTab === "shortleave" ? "3px solid #06b6d4" : "none",
               fontWeight: activeTab === "shortleave" ? "700" : "500",
-              color: activeTab === "shortleave" ? "#06b6d4" : "#64748b",
+              color: activeTab === "shortleave" ? "#22d3ee" : "var(--text-muted, #64748b)",
               cursor: "pointer",
               fontSize: "15px"
             }}
@@ -370,7 +395,7 @@ export default function LeaveManagement() {
               border: "none",
               borderBottom: activeTab === "approvals" ? "3px solid #16a34a" : "none",
               fontWeight: activeTab === "approvals" ? "700" : "500",
-              color: activeTab === "approvals" ? "#16a34a" : "#64748b",
+              color: activeTab === "approvals" ? "#34d399" : "var(--text-muted, #64748b)",
               cursor: "pointer",
               fontSize: "15px"
             }}
@@ -391,7 +416,7 @@ export default function LeaveManagement() {
               border: "none",
               borderBottom: activeTab === "manage-balances" ? "3px solid #4f46e5" : "none",
               fontWeight: activeTab === "manage-balances" ? "700" : "500",
-              color: activeTab === "manage-balances" ? "#4f46e5" : "#64748b",
+              color: activeTab === "manage-balances" ? "#818cf8" : "var(--text-muted, #64748b)",
               cursor: "pointer",
               fontSize: "15px"
             }}
@@ -405,17 +430,17 @@ export default function LeaveManagement() {
 
       {/* TAB 1: APPLY LEAVE */}
       {activeTab === "apply" && (
-        <div style={{ display: "grid", gridTemplateColumns: "360px 1fr", gap: "24px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "24px" }}>
           {/* FORM */}
-          <div style={{ background: "#fff", padding: "24px", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "17px", fontWeight: "700", color: "#1e293b" }}>Apply for Leave</h3>
+          <div style={{ background: "var(--ui-surface, #fff)", padding: "24px", borderRadius: "12px", border: "1px solid var(--ui-border, #e2e8f0)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: "17px", fontWeight: "700", color: "var(--text-main, #1e293b)" }}>Apply for Leave</h3>
             <form onSubmit={handleApplyLeave} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
               <div>
-                <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Leave Type</label>
+                <label style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-muted, #475569)" }}>Leave Type</label>
                 <select
                   value={leaveForm.leave_type}
                   onChange={(e) => setLeaveForm({ ...leaveForm, leave_type: e.target.value })}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "6px", marginTop: "4px" }}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", marginTop: "4px", background: "var(--ui-surface, #fff)", color: "var(--text-main, #1e293b)" }}
                 >
                   <option value="Casual Leave">Casual Leave (CL)</option>
                   <option value="Sick Leave">Sick Leave (SL)</option>
@@ -426,11 +451,11 @@ export default function LeaveManagement() {
               </div>
 
               <div>
-                <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Day Type</label>
+                <label style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-muted, #475569)" }}>Day Type</label>
                 <select
                   value={leaveForm.day_type}
                   onChange={(e) => setLeaveForm({ ...leaveForm, day_type: e.target.value })}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "6px", marginTop: "4px" }}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", marginTop: "4px", background: "var(--ui-surface, #fff)", color: "var(--text-main, #1e293b)" }}
                 >
                   <option value="Full Day">Full Day</option>
                   <option value="First Half">First Half (Half Day)</option>
@@ -439,36 +464,44 @@ export default function LeaveManagement() {
               </div>
 
               <div>
-                <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>From Date</label>
+                <label style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-muted, #475569)" }}>From Date</label>
                 <input
                   type="date"
                   required
                   value={leaveForm.from_date}
-                  onChange={(e) => setLeaveForm({ ...leaveForm, from_date: e.target.value })}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "6px", marginTop: "4px" }}
+                  onChange={(e) => {
+                    const newFrom = e.target.value;
+                    setLeaveForm(prev => ({
+                      ...prev,
+                      from_date: newFrom,
+                      to_date: prev.to_date < newFrom ? newFrom : prev.to_date
+                    }));
+                  }}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", marginTop: "4px", background: "var(--ui-surface, #fff)", color: "var(--text-main, #1e293b)" }}
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>To Date</label>
+                <label style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-muted, #475569)" }}>To Date</label>
                 <input
                   type="date"
                   required
+                  min={leaveForm.from_date}
                   value={leaveForm.to_date}
                   onChange={(e) => setLeaveForm({ ...leaveForm, to_date: e.target.value })}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "6px", marginTop: "4px" }}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", marginTop: "4px", background: "var(--ui-surface, #fff)", color: "var(--text-main, #1e293b)" }}
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Reason</label>
+                <label style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-muted, #475569)" }}>Reason</label>
                 <textarea
                   rows="3"
                   required
                   placeholder="State the reason for leave..."
                   value={leaveForm.reason}
                   onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "6px", marginTop: "4px" }}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", marginTop: "4px", background: "var(--ui-surface, #fff)", color: "var(--text-main, #1e293b)" }}
                 />
               </div>
 
@@ -491,13 +524,16 @@ export default function LeaveManagement() {
           </div>
 
           {/* MY LEAVES TABLE */}
-          <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", fontWeight: "700", color: "#1e293b" }}>
-              My Leave History
+          <div className="table-container" style={{ background: "var(--ui-surface, #fff)", borderRadius: "12px", border: "1px solid var(--ui-border, #e2e8f0)", overflowX: "auto", WebkitOverflowScrolling: "touch", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", width: "100%" }}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--ui-border, #e2e8f0)", fontWeight: "700", color: "var(--text-main, #1e293b)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+              <span>My Leave History</span>
+              <span className="mobile-scroll-hint" style={{ fontSize: "11px", color: "var(--primary-color, #4f46e5)", fontWeight: "600", background: "rgba(79, 70, 229, 0.12)", padding: "3px 8px", borderRadius: "6px" }}>
+                ⇄ Swipe table for full info
+              </span>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+            <table style={{ width: "100%", minWidth: "600px", borderCollapse: "collapse", textAlign: "left" }}>
               <thead>
-                <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#475569", fontSize: "13px" }}>
+                <tr style={{ background: "var(--ui-bg, #f8fafc)", borderBottom: "1px solid var(--ui-border, #e2e8f0)", color: "var(--text-muted, #475569)", fontSize: "13px" }}>
                   <th style={{ padding: "12px 16px" }}>Leave Type</th>
                   <th style={{ padding: "12px 16px" }}>Dates</th>
                   <th style={{ padding: "12px 16px" }}>Days</th>
@@ -507,21 +543,21 @@ export default function LeaveManagement() {
               </thead>
               <tbody>
                 {myLeaves.length === 0 ? (
-                  <tr><td colSpan="5" style={{ padding: "30px", textAlign: "center", color: "#94a3b8" }}>No leaves applied yet.</td></tr>
+                  <tr><td colSpan="5" style={{ padding: "30px", textAlign: "center", color: "var(--text-muted, #94a3b8)" }}>No leaves applied yet.</td></tr>
                 ) : (
                   myLeaves.map(l => (
-                    <tr key={l.id} style={{ borderBottom: "1px solid #f1f5f9", fontSize: "13px" }}>
-                      <td style={{ padding: "12px 16px", fontWeight: "600" }}>{l.leave_type}</td>
-                      <td style={{ padding: "12px 16px", color: "#334155" }}>
+                    <tr key={l.id} style={{ borderBottom: "1px solid var(--ui-border, #f1f5f9)", fontSize: "13px" }}>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", color: "var(--text-main, #1e293b)" }}>{l.leave_type}</td>
+                      <td style={{ padding: "12px 16px", color: "var(--text-main, #334155)" }}>
                         {new Date(l.from_date).toLocaleDateString()} - {new Date(l.to_date).toLocaleDateString()}
                       </td>
-                      <td style={{ padding: "12px 16px", fontWeight: "600" }}>{l.total_days} day(s)</td>
-                      <td style={{ padding: "12px 16px", color: "#64748b" }}>{l.reason}</td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", color: "var(--text-main, #1e293b)" }}>{l.total_days} day(s)</td>
+                      <td style={{ padding: "12px 16px", color: "var(--text-muted, #94a3b8)" }}>{l.reason}</td>
                       <td style={{ padding: "12px 16px" }}>
                         <span style={{
                           padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: "700",
-                          background: l.status === "Approved" ? "#dcfce7" : l.status === "Pending" ? "#fef3c7" : "#fee2e2",
-                          color: l.status === "Approved" ? "#16a34a" : l.status === "Pending" ? "#b45309" : "#b91c1c"
+                          background: l.status === "Approved" ? "rgba(16, 185, 129, 0.15)" : l.status === "Pending" ? "rgba(245, 158, 11, 0.15)" : "rgba(239, 68, 68, 0.15)",
+                          color: l.status === "Approved" ? "#10b981" : l.status === "Pending" ? "#f59e0b" : "#ef4444"
                         }}>
                           {l.status}
                         </span>
@@ -537,53 +573,53 @@ export default function LeaveManagement() {
 
       {/* TAB 2: SHORT LEAVE */}
       {activeTab === "shortleave" && (
-        <div style={{ display: "grid", gridTemplateColumns: "360px 1fr", gap: "24px" }}>
-          <div style={{ background: "#fff", padding: "24px", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "17px", fontWeight: "700", color: "#1e293b" }}>Log Short Leave (Max 2 Hrs)</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "24px" }}>
+          <div style={{ background: "var(--ui-surface, #fff)", padding: "24px", borderRadius: "12px", border: "1px solid var(--ui-border, #e2e8f0)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+            <h3 style={{ margin: "0 0 16px", fontSize: "17px", fontWeight: "700", color: "var(--text-main, #1e293b)" }}>Log Short Leave (Max 2 Hrs)</h3>
             <form onSubmit={handleApplyShortLeave} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
               <div>
-                <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Date</label>
+                <label style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-muted, #475569)" }}>Date</label>
                 <input
                   type="date"
                   required
                   value={shortLeaveForm.date}
                   onChange={(e) => setShortLeaveForm({ ...shortLeaveForm, date: e.target.value })}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "6px", marginTop: "4px" }}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", marginTop: "4px", background: "var(--ui-surface, #fff)", color: "var(--text-main, #1e293b)" }}
                 />
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                 <div>
-                  <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>From Time</label>
+                  <label style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-muted, #475569)" }}>From Time</label>
                   <input
                     type="time"
                     required
                     value={shortLeaveForm.from_time}
                     onChange={(e) => setShortLeaveForm({ ...shortLeaveForm, from_time: e.target.value })}
-                    style={{ width: "100%", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "6px", marginTop: "4px" }}
+                    style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", marginTop: "4px", background: "var(--ui-surface, #fff)", color: "var(--text-main, #1e293b)" }}
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>To Time</label>
+                  <label style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-muted, #475569)" }}>To Time</label>
                   <input
                     type="time"
                     required
                     value={shortLeaveForm.to_time}
                     onChange={(e) => setShortLeaveForm({ ...shortLeaveForm, to_time: e.target.value })}
-                    style={{ width: "100%", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "6px", marginTop: "4px" }}
+                    style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", marginTop: "4px", background: "var(--ui-surface, #fff)", color: "var(--text-main, #1e293b)" }}
                   />
                 </div>
               </div>
 
               <div>
-                <label style={{ fontSize: "12px", fontWeight: "600", color: "#475569" }}>Reason</label>
+                <label style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-muted, #475569)" }}>Reason</label>
                 <textarea
                   rows="2"
                   required
                   placeholder="Doctor, Bank, Personal errand..."
                   value={shortLeaveForm.reason}
                   onChange={(e) => setShortLeaveForm({ ...shortLeaveForm, reason: e.target.value })}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "6px", marginTop: "4px" }}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", marginTop: "4px", background: "var(--ui-surface, #fff)", color: "var(--text-main, #1e293b)" }}
                 />
               </div>
 
@@ -605,13 +641,17 @@ export default function LeaveManagement() {
             </form>
           </div>
 
-          <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", fontWeight: "700", color: "#1e293b" }}>
-              My Short Leave History
+          <div className="table-container" style={{ background: "var(--ui-surface, #fff)", borderRadius: "12px", border: "1px solid var(--ui-border, #e2e8f0)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", width: "100%", overflow: "hidden" }}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--ui-border, #e2e8f0)", fontWeight: "700", color: "var(--text-main, #1e293b)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+              <span>My Short Leave History</span>
+              <span className="mobile-scroll-hint" style={{ fontSize: "11px", color: "#06b6d4", fontWeight: "600", background: "rgba(6, 182, 212, 0.12)", padding: "3px 8px", borderRadius: "6px" }}>
+                ⇄ Swipe table for full info
+              </span>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+            <div style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <table style={{ width: "100%", minWidth: "650px", borderCollapse: "collapse", textAlign: "left" }}>
               <thead>
-                <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#475569", fontSize: "13px" }}>
+                <tr style={{ background: "var(--ui-bg, #f8fafc)", borderBottom: "1px solid var(--ui-border, #e2e8f0)", color: "var(--text-muted, #475569)", fontSize: "13px" }}>
                   <th style={{ padding: "12px 16px" }}>Date</th>
                   <th style={{ padding: "12px 16px" }}>Time Window</th>
                   <th style={{ padding: "12px 16px" }}>Duration</th>
@@ -621,16 +661,16 @@ export default function LeaveManagement() {
               </thead>
               <tbody>
                 {myShortLeaves.length === 0 ? (
-                  <tr><td colSpan="5" style={{ padding: "30px", textAlign: "center", color: "#94a3b8" }}>No short leaves taken.</td></tr>
+                  <tr><td colSpan="5" style={{ padding: "30px", textAlign: "center", color: "var(--text-muted, #94a3b8)" }}>No short leaves taken.</td></tr>
                 ) : (
                   myShortLeaves.map(sl => (
-                    <tr key={sl.id} style={{ borderBottom: "1px solid #f1f5f9", fontSize: "13px" }}>
-                      <td style={{ padding: "12px 16px", fontWeight: "600" }}>{new Date(sl.date).toLocaleDateString()}</td>
-                      <td style={{ padding: "12px 16px" }}>{sl.from_time} - {sl.to_time}</td>
-                      <td style={{ padding: "12px 16px" }}>{sl.hours} hrs</td>
-                      <td style={{ padding: "12px 16px", color: "#64748b" }}>{sl.reason}</td>
+                    <tr key={sl.id} style={{ borderBottom: "1px solid var(--ui-border, #f1f5f9)", fontSize: "13px" }}>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", color: "var(--text-main, #1e293b)" }}>{new Date(sl.date).toLocaleDateString()}</td>
+                      <td style={{ padding: "12px 16px", color: "var(--text-main, #334155)" }}>{sl.from_time} - {sl.to_time}</td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", color: "var(--text-main, #1e293b)" }}>{sl.hours} hrs</td>
+                      <td style={{ padding: "12px 16px", color: "var(--text-muted, #94a3b8)" }}>{sl.reason}</td>
                       <td style={{ padding: "12px 16px" }}>
-                        <span style={{ padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: "700", background: "#dcfce7", color: "#16a34a" }}>
+                        <span style={{ padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: "700", background: "rgba(16, 185, 129, 0.15)", color: "#10b981" }}>
                           {sl.status}
                         </span>
                       </td>
@@ -638,20 +678,25 @@ export default function LeaveManagement() {
                   ))
                 )}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
         </div>
       )}
 
       {/* TAB 3: ADMIN APPROVALS */}
       {activeTab === "approvals" && canApprove && (
-        <div style={{ background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", fontWeight: "700", color: "#1e293b" }}>
-            All Employee Leave Requests (Approvals & Decision)
+        <div className="table-container" style={{ background: "var(--ui-surface, #fff)", borderRadius: "12px", border: "1px solid var(--ui-border, #e2e8f0)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", overflow: "hidden" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--ui-border, #e2e8f0)", fontWeight: "700", color: "var(--text-main, #1e293b)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+            <span>All Employee Leave Requests (Approvals & Decision)</span>
+            <span className="mobile-scroll-hint" style={{ fontSize: "11px", color: "#16a34a", fontWeight: "600", background: "rgba(16, 185, 129, 0.15)", padding: "3px 8px", borderRadius: "6px" }}>
+              ⇄ Swipe table horizontally to view actions
+            </span>
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+          <div style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+            <table style={{ width: "100%", minWidth: "750px", borderCollapse: "collapse", textAlign: "left" }}>
             <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#475569", fontSize: "13px" }}>
+              <tr style={{ background: "var(--ui-bg, #f8fafc)", borderBottom: "1px solid var(--ui-border, #e2e8f0)", color: "var(--text-muted, #475569)", fontSize: "13px" }}>
                 <th style={{ padding: "14px 16px" }}>Employee</th>
                 <th style={{ padding: "14px 16px" }}>Type</th>
                 <th style={{ padding: "14px 16px" }}>Duration</th>
@@ -666,22 +711,22 @@ export default function LeaveManagement() {
                 <tr><td colSpan="7" style={{ padding: "40px", textAlign: "center", color: "#94a3b8" }}>No leave requests found.</td></tr>
               ) : (
                 allLeaves.map(l => (
-                  <tr key={l.id} style={{ borderBottom: "1px solid #f1f5f9", fontSize: "14px" }}>
+                  <tr key={l.id} style={{ borderBottom: "1px solid var(--ui-border, #f1f5f9)", fontSize: "14px" }}>
                     <td style={{ padding: "14px 16px" }}>
-                      <strong style={{ color: "#1e293b" }}>{l.user_name}</strong>
-                      <span style={{ display: "block", fontSize: "12px", color: "#64748b" }}>{l.user_email}</span>
+                      <strong style={{ color: "var(--text-main, #1e293b)" }}>{l.user_name}</strong>
+                      <span style={{ display: "block", fontSize: "12px", color: "var(--text-muted, #64748b)" }}>{l.user_email}</span>
                     </td>
-                    <td style={{ padding: "14px 16px", fontWeight: "600" }}>{l.leave_type}</td>
-                    <td style={{ padding: "14px 16px" }}>
+                    <td style={{ padding: "14px 16px", fontWeight: "600", color: "var(--text-main, #1e293b)" }}>{l.leave_type}</td>
+                    <td style={{ padding: "14px 16px", color: "var(--text-main, #334155)" }}>
                       {new Date(l.from_date).toLocaleDateString()} to {new Date(l.to_date).toLocaleDateString()}
                     </td>
-                    <td style={{ padding: "14px 16px", fontWeight: "700" }}>{l.total_days}</td>
-                    <td style={{ padding: "14px 16px", color: "#475569" }}>{l.reason}</td>
+                    <td style={{ padding: "14px 16px", fontWeight: "700", color: "var(--text-main, #1e293b)" }}>{l.total_days}</td>
+                    <td style={{ padding: "14px 16px", color: "var(--text-muted, #475569)" }}>{l.reason}</td>
                     <td style={{ padding: "14px 16px" }}>
                       <span style={{
                         padding: "4px 10px", borderRadius: "14px", fontSize: "12px", fontWeight: "700",
-                        background: l.status === "Approved" ? "#dcfce7" : l.status === "Pending" ? "#fef3c7" : "#fee2e2",
-                        color: l.status === "Approved" ? "#16a34a" : l.status === "Pending" ? "#b45309" : "#b91c1c"
+                        background: l.status === "Approved" ? "rgba(16, 185, 129, 0.2)" : l.status === "Pending" ? "rgba(245, 158, 11, 0.2)" : "rgba(239, 68, 68, 0.2)",
+                        color: l.status === "Approved" ? "#10b981" : l.status === "Pending" ? "#f59e0b" : "#ef4444"
                       }}>
                         {l.status}
                       </span>
@@ -703,7 +748,7 @@ export default function LeaveManagement() {
                           </button>
                         </div>
                       ) : (
-                        <span style={{ color: "#64748b", fontSize: "12px" }}>Decided by {l.approved_by || "Admin"}</span>
+                        <span style={{ color: "var(--text-muted, #64748b)", fontSize: "12px" }}>Decided by {l.approved_by || "Admin"}</span>
                       )}
                     </td>
                   </tr>
@@ -711,6 +756,7 @@ export default function LeaveManagement() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -718,17 +764,17 @@ export default function LeaveManagement() {
       {activeTab === "manage-balances" && canManagePolicy && (
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
           {/* 1. Global Policy Configuration Card */}
-          <div style={{ background: "#ffffff", borderRadius: "14px", border: "1px solid #e2e8f0", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+          <div style={{ background: "var(--ui-surface, #ffffff)", borderRadius: "14px", border: "1px solid var(--ui-border, #e2e8f0)", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
               <div>
-                <h2 style={{ fontSize: "18px", fontWeight: "800", color: "#1e293b", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
-                  <ShieldIcon size={20} color="#4f46e5" /> Company-Wide Leave Policy
+                <h2 style={{ fontSize: "18px", fontWeight: "800", color: "var(--text-main, #1e293b)", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                  <ShieldIcon size={20} color="var(--primary-color, #4f46e5)" /> Company-Wide Leave Policy
                 </h2>
-                <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748b" }}>
+                <p style={{ margin: "4px 0 0", fontSize: "13px", color: "var(--text-muted, #64748b)" }}>
                   Define global annual leave quotas for all company employees from a single place.
                 </p>
               </div>
-              <span style={{ fontSize: "12px", background: "#ecfdf5", color: "#059669", padding: "4px 10px", borderRadius: "12px", fontWeight: "700" }}>
+              <span style={{ fontSize: "12px", background: "rgba(16, 185, 129, 0.15)", color: "#10b981", padding: "4px 10px", borderRadius: "12px", fontWeight: "700" }}>
                 Active Company Policy
               </span>
             </div>
@@ -736,8 +782,8 @@ export default function LeaveManagement() {
             <form onSubmit={handleSavePolicy}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", marginBottom: "20px" }}>
                 {/* CL */}
-                <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
-                  <label style={{ fontSize: "13px", fontWeight: "700", color: "#4f46e5", display: "block", marginBottom: "6px" }}>
+                <div style={{ background: "var(--ui-bg, #f8fafc)", padding: "16px", borderRadius: "10px", border: "1px solid var(--ui-border, #e2e8f0)" }}>
+                  <label style={{ fontSize: "13px", fontWeight: "700", color: "#6366f1", display: "block", marginBottom: "6px" }}>
                     Casual Leave (CL)
                   </label>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -748,16 +794,16 @@ export default function LeaveManagement() {
                       required
                       value={policyForm.cl_default}
                       onChange={(e) => setPolicyForm({ ...policyForm, cl_default: parseInt(e.target.value, 10) || 0 })}
-                      style={{ width: "90px", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "6px", fontSize: "15px", fontWeight: "700" }}
+                      style={{ width: "90px", padding: "8px 12px", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", fontSize: "15px", fontWeight: "700", background: "var(--ui-surface, #fff)", color: "var(--text-main, #1e293b)" }}
                     />
-                    <span style={{ fontSize: "13px", color: "#64748b", fontWeight: "600" }}>Days / Year</span>
+                    <span style={{ fontSize: "13px", color: "var(--text-muted, #64748b)", fontWeight: "600" }}>Days / Year</span>
                   </div>
-                  <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "6px" }}>Annual unplanned / personal leaves</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted, #94a3b8)", marginTop: "6px" }}>Annual unplanned / personal leaves</div>
                 </div>
 
                 {/* SL */}
-                <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
-                  <label style={{ fontSize: "13px", fontWeight: "700", color: "#16a34a", display: "block", marginBottom: "6px" }}>
+                <div style={{ background: "var(--ui-bg, #f8fafc)", padding: "16px", borderRadius: "10px", border: "1px solid var(--ui-border, #e2e8f0)" }}>
+                  <label style={{ fontSize: "13px", fontWeight: "700", color: "#10b981", display: "block", marginBottom: "6px" }}>
                     Sick Leave (SL)
                   </label>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -768,16 +814,16 @@ export default function LeaveManagement() {
                       required
                       value={policyForm.sl_default}
                       onChange={(e) => setPolicyForm({ ...policyForm, sl_default: parseInt(e.target.value, 10) || 0 })}
-                      style={{ width: "90px", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "6px", fontSize: "15px", fontWeight: "700" }}
+                      style={{ width: "90px", padding: "8px 12px", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", fontSize: "15px", fontWeight: "700", background: "var(--ui-surface, #fff)", color: "var(--text-main, #1e293b)" }}
                     />
-                    <span style={{ fontSize: "13px", color: "#64748b", fontWeight: "600" }}>Days / Year</span>
+                    <span style={{ fontSize: "13px", color: "var(--text-muted, #64748b)", fontWeight: "600" }}>Days / Year</span>
                   </div>
-                  <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "6px" }}>Medical & health recovery leaves</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted, #94a3b8)", marginTop: "6px" }}>Medical & health recovery leaves</div>
                 </div>
 
                 {/* PL */}
-                <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #ea580c", borderLeftWidth: "4px" }}>
-                  <label style={{ fontSize: "13px", fontWeight: "700", color: "#ea580c", display: "block", marginBottom: "6px" }}>
+                <div style={{ background: "var(--ui-bg, #f8fafc)", padding: "16px", borderRadius: "10px", border: "1px solid #f97316", borderLeftWidth: "4px" }}>
+                  <label style={{ fontSize: "13px", fontWeight: "700", color: "#f97316", display: "block", marginBottom: "6px" }}>
                     Privilege Leave (PL)
                   </label>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -788,16 +834,16 @@ export default function LeaveManagement() {
                       required
                       value={policyForm.pl_default}
                       onChange={(e) => setPolicyForm({ ...policyForm, pl_default: parseInt(e.target.value, 10) || 0 })}
-                      style={{ width: "90px", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "6px", fontSize: "15px", fontWeight: "700" }}
+                      style={{ width: "90px", padding: "8px 12px", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", fontSize: "15px", fontWeight: "700", background: "var(--ui-surface, #fff)", color: "var(--text-main, #1e293b)" }}
                     />
-                    <span style={{ fontSize: "13px", color: "#64748b", fontWeight: "600" }}>Days / Year</span>
+                    <span style={{ fontSize: "13px", color: "var(--text-muted, #64748b)", fontWeight: "600" }}>Days / Year</span>
                   </div>
-                  <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "6px" }}>Planned vacations & earned leaves</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted, #94a3b8)", marginTop: "6px" }}>Planned vacations & earned leaves</div>
                 </div>
 
                 {/* Comp-Off */}
-                <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
-                  <label style={{ fontSize: "13px", fontWeight: "700", color: "#0284c7", display: "block", marginBottom: "6px" }}>
+                <div style={{ background: "var(--ui-bg, #f8fafc)", padding: "16px", borderRadius: "10px", border: "1px solid var(--ui-border, #e2e8f0)" }}>
+                  <label style={{ fontSize: "13px", fontWeight: "700", color: "#0ea5e9", display: "block", marginBottom: "6px" }}>
                     Comp-Off
                   </label>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -808,16 +854,16 @@ export default function LeaveManagement() {
                       required
                       value={policyForm.comp_off_default}
                       onChange={(e) => setPolicyForm({ ...policyForm, comp_off_default: parseInt(e.target.value, 10) || 0 })}
-                      style={{ width: "90px", padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "6px", fontSize: "15px", fontWeight: "700" }}
+                      style={{ width: "90px", padding: "8px 12px", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "6px", fontSize: "15px", fontWeight: "700", background: "var(--ui-surface, #fff)", color: "var(--text-main, #1e293b)" }}
                     />
-                    <span style={{ fontSize: "13px", color: "#64748b", fontWeight: "600" }}>Days Base</span>
+                    <span style={{ fontSize: "13px", color: "var(--text-muted, #64748b)", fontWeight: "600" }}>Days Base</span>
                   </div>
-                  <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "6px" }}>Granted for extra weekend shifts</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted, #94a3b8)", marginTop: "6px" }}>Granted for extra weekend shifts</div>
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f1f5f9", paddingTop: "16px" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#475569", cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--ui-border, #f1f5f9)", paddingTop: "16px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "var(--text-main, #475569)", cursor: "pointer" }}>
                   <input
                     type="checkbox"
                     checked={policyForm.applyToExisting}
@@ -849,17 +895,23 @@ export default function LeaveManagement() {
           </div>
 
           {/* 2. Overview of Employees & Balances */}
-          <div style={{ background: "#ffffff", borderRadius: "14px", border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0" }}>
-              <strong style={{ fontSize: "16px", color: "#1e293b" }}>Current Staff Leave Overview</strong>
-              <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748b" }}>
-                Employee leave balances allocated via company policy. Deducted automatically upon approved leaves.
-              </p>
+          <div className="table-container" style={{ background: "var(--ui-surface, #ffffff)", borderRadius: "14px", border: "1px solid var(--ui-border, #e2e8f0)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", overflow: "hidden" }}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--ui-border, #e2e8f0)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+              <div>
+                <strong style={{ fontSize: "16px", color: "var(--text-main, #1e293b)" }}>Current Staff Leave Overview</strong>
+                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "var(--text-muted, #64748b)" }}>
+                  Employee leave balances allocated via company policy. Deducted automatically upon approved leaves.
+                </p>
+              </div>
+              <span className="mobile-scroll-hint" style={{ fontSize: "11px", color: "var(--primary-color, #4f46e5)", fontWeight: "600", background: "rgba(79, 70, 229, 0.12)", padding: "3px 8px", borderRadius: "6px" }}>
+                ⇄ Swipe table to view all quotas
+              </span>
             </div>
 
-            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+            <div style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <table style={{ width: "100%", minWidth: "650px", borderCollapse: "collapse", textAlign: "left" }}>
               <thead>
-                <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#475569", fontSize: "13px" }}>
+                <tr style={{ background: "var(--ui-bg, #f8fafc)", borderBottom: "1px solid var(--ui-border, #e2e8f0)", color: "var(--text-muted, #475569)", fontSize: "13px" }}>
                   <th style={{ padding: "14px 16px" }}>Employee</th>
                   <th style={{ padding: "14px 16px" }}>Casual (CL)</th>
                   <th style={{ padding: "14px 16px" }}>Sick (SL)</th>
@@ -869,45 +921,51 @@ export default function LeaveManagement() {
                 </tr>
               </thead>
               <tbody>
-                {allBalances.length === 0 ? (
-                  <tr><td colSpan="6" style={{ padding: "30px", textAlign: "center", color: "#94a3b8" }}>No staff records.</td></tr>
-                ) : (
-                  allBalances.map(b => (
-                    <tr key={b.id} style={{ borderBottom: "1px solid #f1f5f9", fontSize: "14px" }}>
+                {(() => {
+                  // Deduplicate staff records by email/user_id so each employee displays exactly once
+                  const uniqueBalances = Array.from(
+                    new Map(allBalances.map(b => [b.user_email || b.user_id || b.id, b])).values()
+                  );
+                  if (uniqueBalances.length === 0) {
+                    return <tr><td colSpan="6" style={{ padding: "30px", textAlign: "center", color: "var(--text-muted, #94a3b8)" }}>No staff records.</td></tr>;
+                  }
+                  return uniqueBalances.map(b => (
+                    <tr key={b.id || b.user_id} style={{ borderBottom: "1px solid var(--ui-border, #f1f5f9)", fontSize: "14px" }}>
                       <td style={{ padding: "14px 16px" }}>
-                        <strong style={{ color: "#1e293b" }}>{b.user_name}</strong>
-                        <span style={{ display: "block", fontSize: "12px", color: "#64748b" }}>{b.user_email || "Company Staff"}</span>
+                        <strong style={{ color: "var(--text-main, #1e293b)" }}>{b.user_name}</strong>
+                        <span style={{ display: "block", fontSize: "12px", color: "var(--text-muted, #64748b)" }}>{b.user_email || "Company Staff"}</span>
                       </td>
                       <td style={{ padding: "14px 16px" }}>
-                        <span style={{ fontWeight: "700", color: "#4f46e5", background: "#e0e7ff", padding: "3px 10px", borderRadius: "8px" }}>
+                        <span style={{ fontWeight: "700", color: "#6366f1", background: "rgba(99, 102, 241, 0.15)", padding: "3px 10px", borderRadius: "8px" }}>
                           {b.cl_balance} Days
                         </span>
                       </td>
                       <td style={{ padding: "14px 16px" }}>
-                        <span style={{ fontWeight: "700", color: "#16a34a", background: "#dcfce7", padding: "3px 10px", borderRadius: "8px" }}>
+                        <span style={{ fontWeight: "700", color: "#10b981", background: "rgba(16, 185, 129, 0.15)", padding: "3px 10px", borderRadius: "8px" }}>
                           {b.sl_balance} Days
                         </span>
                       </td>
                       <td style={{ padding: "14px 16px" }}>
-                        <span style={{ fontWeight: "700", color: "#ea580c", background: "#ffedd5", padding: "3px 10px", borderRadius: "8px" }}>
+                        <span style={{ fontWeight: "700", color: "#f97316", background: "rgba(249, 115, 22, 0.15)", padding: "3px 10px", borderRadius: "8px" }}>
                           {b.pl_balance} Days
                         </span>
                       </td>
                       <td style={{ padding: "14px 16px" }}>
-                        <span style={{ fontWeight: "700", color: "#0284c7", background: "#e0f2fe", padding: "3px 10px", borderRadius: "8px" }}>
+                        <span style={{ fontWeight: "700", color: "#0ea5e9", background: "rgba(14, 165, 233, 0.15)", padding: "3px 10px", borderRadius: "8px" }}>
                           {b.comp_off} Days
                         </span>
                       </td>
                       <td style={{ padding: "14px 16px" }}>
-                        <span style={{ padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: "700", background: "#dcfce7", color: "#16a34a" }}>
+                        <span style={{ padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: "700", background: "rgba(16, 185, 129, 0.15)", color: "#10b981" }}>
                           Active
                         </span>
                       </td>
                     </tr>
-                  ))
-                )}
+                  ));
+                })()}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}

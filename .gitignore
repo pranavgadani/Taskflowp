@@ -38,3 +38,13 @@ uploads/
 # OS Files
 .DS_Store
 Thumbs.db
+
+# Temporary audit & test captures
+Task-Flow-frontend-main/*.png
+Task-Flow-frontend-main/*audit*
+Task-Flow-frontend-main/detect_mobile_cuts.cjs
+Task-Flow-frontend-main/inspect_doc.js
+Task-Flow-frontend-main/test_document_scenarios.js
+Task-Flow-frontend-main/test_screenshots/
+Task-Flow-frontend-main/full_system_audit/
+Task-Flow-frontend-main/mobile_cut_audit/

@@ -17,7 +17,6 @@ const modulesList = [
   { id: "maxProjects", label: "Project Management" },
   { id: "maxTasks", label: "Task Management" },
   { id: "maxTaskStatuses", label: "Task Status Management" },
-  { id: "maxIssues", label: "Issue Management" },
   { id: "maxDocuments", label: "Document Management" },
   { id: "maxAddText", label: "Add Text Access" },
   { id: "maxBulkUploads", label: "Bulk Upload Access" },

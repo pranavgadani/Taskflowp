@@ -574,10 +574,10 @@ export default function Task({ isIssue = false }) {
       key: "title",
       render: (v, row) => (
         <div style={{ minWidth: "220px", maxWidth: "280px" }}>
-          <div style={{ fontWeight: "700", color: "#0f172a", fontSize: "14px", lineHeight: "1.4" }}>{v}</div>
+          <div style={{ fontWeight: "700", color: "var(--text-main, #0f172a)", fontSize: "14px", lineHeight: "1.4" }}>{v}</div>
           {row.project?.name && (
-            <div style={{ fontSize: "11px", color: "#6366f1", fontWeight: "600", marginTop: "4px", display: "inline-flex", alignItems: "center", background: "#f5f3ff", padding: "2px 8px", borderRadius: "10px", border: "1px solid #ede9fe" }}>
-              <FolderIcon size={12} color="#6366f1" style={{ marginRight: "4px" }} />
+            <div style={{ fontSize: "11px", color: "var(--primary-color, #6366f1)", fontWeight: "600", marginTop: "4px", display: "inline-flex", alignItems: "center", background: "var(--primary-light, #f5f3ff)", padding: "2px 8px", borderRadius: "10px", border: "1px solid var(--ui-border, #ede9fe)" }}>
+              <FolderIcon size={12} color="var(--primary-color, #6366f1)" style={{ marginRight: "4px" }} />
               {row.project.name}
             </div>
           )}
@@ -589,7 +589,7 @@ export default function Task({ isIssue = false }) {
         header: "Start Date",
         key: "startDate",
         render: (v) => v ? (
-          <span style={{ fontSize: "12px", fontWeight: "600", color: "#475569", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-muted, #475569)", whiteSpace: "nowrap" }}>
             {new Date(v).toLocaleDateString('en-GB')}
           </span>
         ) : "—"
@@ -600,7 +600,7 @@ export default function Task({ isIssue = false }) {
         render: (v, row) => {
           const d = v || row.calculatedEndDate || row.dueDate;
           return d ? (
-            <span style={{ fontSize: "12px", fontWeight: "600", color: "#475569", whiteSpace: "nowrap" }}>
+            <span style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-muted, #475569)", whiteSpace: "nowrap" }}>
               {new Date(d).toLocaleDateString('en-GB')}
             </span>
           ) : "—";
@@ -618,8 +618,8 @@ export default function Task({ isIssue = false }) {
                   <div
                     key={st._id || idx}
                     style={{
-                      background: "#f8fafc",
-                      border: "1px solid #e2e8f0",
+                      background: "var(--ui-surface, #f8fafc)",
+                      border: "1px solid var(--ui-border, #e2e8f0)",
                       borderRadius: "6px",
                       padding: "5px 10px",
                       display: "flex",
@@ -628,7 +628,7 @@ export default function Task({ isIssue = false }) {
                       gap: "10px"
                     }}
                   >
-                    <div style={{ fontSize: "12px", fontWeight: "600", color: "#334155", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={st.title}>
+                    <div style={{ fontSize: "12px", fontWeight: "600", color: "var(--text-main, #334155)", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={st.title}>
                       ↳ {st.title}
                     </div>
                     <select
@@ -636,9 +636,9 @@ export default function Task({ isIssue = false }) {
                       onChange={(e) => handleUpdateSubtaskStatus(row._id, st._id, e.target.value)}
                       style={{
                         fontSize: "11px", fontWeight: "700", padding: "3px 8px", borderRadius: "12px",
-                        border: "1px solid #cbd5e1",
-                        background: st.status === "Complete" ? "#dcfce7" : st.status === "In Process" ? "#dbeafe" : "#fef3c7",
-                        color: st.status === "Complete" ? "#15803d" : st.status === "In Process" ? "#1d4ed8" : "#b45309",
+                        border: "1px solid var(--ui-border, #cbd5e1)",
+                        background: st.status === "Complete" ? "rgba(16, 185, 129, 0.2)" : st.status === "In Process" ? "rgba(59, 130, 246, 0.2)" : "rgba(245, 158, 11, 0.2)",
+                        color: st.status === "Complete" ? "#10b981" : st.status === "In Process" ? "#3b82f6" : "#f59e0b",
                         cursor: "pointer",
                         outline: "none"
                       }}
@@ -650,7 +650,7 @@ export default function Task({ isIssue = false }) {
                   </div>
                 ))
               ) : (
-                <span style={{ color: "#94a3b8", fontSize: "12px" }}>—</span>
+                <span style={{ color: "var(--text-muted, #94a3b8)", fontSize: "12px" }}>—</span>
               )}
               {hasPermission("task_management", "create") && (
                 <button
@@ -665,13 +665,11 @@ export default function Task({ isIssue = false }) {
                     status: "Pending"
                   })}
                   style={{
-                    background: "#eef2ff", color: "#4f46e5", border: "1px dashed #a5b4fc",
+                    background: "var(--primary-light, #eef2ff)", color: "var(--primary-color, #4f46e5)", border: "1px dashed var(--primary-color, #a5b4fc)",
                     borderRadius: "6px", padding: "4px 10px", fontSize: "11px", fontWeight: "700",
                     cursor: "pointer", width: "fit-content", marginTop: "2px",
                     transition: "all 0.2s ease"
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = "#e0e7ff"}
-                  onMouseLeave={(e) => e.currentTarget.style.background = "#eef2ff"}
                 >
                   + Add Subtask
                 </button>
@@ -895,37 +893,6 @@ export default function Task({ isIssue = false }) {
             : (selectedProject ? `${selectedProject.name} — Tasks` : "All Tasks")}
         </h2>
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          
-          {/* View Mode Toggle */}
-          <div style={{ display: "flex", background: "var(--table-bg)", borderRadius: "10px", padding: "4px", border: "1px solid var(--ui-border)" }}>
-            <button
-              title="List View"
-              onClick={() => setViewMode("list")}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                padding: "8px 10px", border: "none", borderRadius: "8px", cursor: "pointer", transition: "0.2s",
-                background: viewMode === "list" ? "#fff" : "transparent",
-                color: viewMode === "list" ? "var(--primary-color)" : "var(--text-muted)",
-                boxShadow: viewMode === "list" ? "var(--shadow-sm)" : "none"
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-            </button>
-            <button
-              title="Kanban View"
-              onClick={() => setViewMode("kanban")}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                padding: "8px 10px", border: "none", borderRadius: "8px", cursor: "pointer", transition: "0.2s",
-                background: viewMode === "kanban" ? "#fff" : "transparent",
-                color: viewMode === "kanban" ? "var(--primary-color)" : "var(--text-muted)",
-                boxShadow: viewMode === "kanban" ? "var(--shadow-sm)" : "none"
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>
-            </button>
-          </div>
-
           {hasPermission("task_management", "create") && (
             <button
               className="btn btn-secondary"
@@ -1234,8 +1201,8 @@ export default function Task({ isIssue = false }) {
             <div
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               style={{
-                background: "#fdfefe",
-                border: "1.5px solid #e5e7eb",
+                background: "var(--ui-surface, #fdfefe)",
+                border: "1.5px solid var(--ui-border, #e5e7eb)",
                 borderRadius: "12px",
                 padding: "8px 15px",
                 minHeight: "48px",
@@ -1264,25 +1231,25 @@ export default function Task({ isIssue = false }) {
                   );
                 })
               ) : (
-                <span style={{ color: "#9ca3af", fontSize: "14px" }}>Choose staff members...</span>
+                <span style={{ color: "var(--text-muted, #9ca3af)", fontSize: "14px" }}>Choose staff members...</span>
               )}
             </div>
 
             {isDropdownOpen && (
               <div style={{
                 position: "absolute", top: "100%", left: 0, right: 0,
-                marginTop: "8px", background: "#ffffff", borderRadius: "12px",
-                boxShadow: "0 10px 25px rgba(0,0,0,0.1)", border: "1px solid var(--ui-border)",
+                marginTop: "8px", background: "var(--ui-surface, #ffffff)", borderRadius: "12px",
+                boxShadow: "0 10px 25px rgba(0,0,0,0.3)", border: "1px solid var(--ui-border, #e2e8f0)",
                 maxHeight: "250px", overflowY: "auto", zIndex: 1100
               }}>
-                <div style={{ padding: "10px", borderBottom: "1px solid #f3f4f6", position: 'sticky', top: 0, background: '#fff' }}>
+                <div style={{ padding: "10px", borderBottom: "1px solid var(--ui-border, #f3f4f6)", position: 'sticky', top: 0, background: 'var(--ui-surface, #fff)' }}>
                   <input
                     className="form-control"
                     placeholder="Search staff..."
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}
                     onClick={(e) => e.stopPropagation()}
-                    style={{ height: '35px', fontSize: '13px' }}
+                    style={{ height: '35px', fontSize: '13px', background: 'var(--ui-bg)', color: 'var(--text-main)', border: '1px solid var(--ui-border)' }}
                   />
                 </div>
                 {getValidStaff()
@@ -1308,19 +1275,19 @@ export default function Task({ isIssue = false }) {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "space-between",
-                          background: isSelected ? "#f0f7ff" : "transparent",
+                          background: isSelected ? "var(--primary-light, #f0f7ff)" : "transparent",
                           transition: "all 0.2s ease"
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "#f8fafc"}
-                        onMouseLeave={(e) => e.currentTarget.style.background = isSelected ? "#f0f7ff" : "transparent"}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "var(--primary-light, #f8fafc)"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = isSelected ? "var(--primary-light, #f0f7ff)" : "transparent"}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                           <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--primary-color)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "800", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
                             {s.name?.charAt(0).toUpperCase()}
                           </div>
                           <div style={{ display: "flex", flexDirection: "column" }}>
-                            <div style={{ fontSize: "14px", fontWeight: "600", color: "#1e293b" }}>{s.name}</div>
-                            <div style={{ fontSize: "11px", color: "#64748b" }}>{s.role?.name || "Staff Member"}</div>
+                            <div style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-main, #1e293b)" }}>{s.name}</div>
+                            <div style={{ fontSize: "11px", color: "var(--text-muted, #64748b)" }}>{s.role?.name || s.position || "Staff Member"}</div>
                           </div>
                         </div>
                         {isSelected && <CheckIcon size={16} color="var(--primary-color)" />}
@@ -1392,15 +1359,15 @@ export default function Task({ isIssue = false }) {
 
         {/* ─── SUBTASKS BUILDER IN TASK FORM ─── */}
         <div style={{
-          background: "#f8fafc", borderRadius: "12px", border: "1.5px solid #e2e8f0",
+          background: "var(--ui-bg, #f8fafc)", borderRadius: "12px", border: "1.5px solid var(--ui-border, #e2e8f0)",
           padding: "16px", marginBottom: "20px"
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
             <div>
-              <span style={{ fontWeight: "800", fontSize: "14px", color: "#1e293b", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                <ClipboardIcon size={16} color="#4f46e5" /> Subtasks ({form.subtasks?.length || 0})
+              <span style={{ fontWeight: "800", fontSize: "14px", color: "var(--text-main, #1e293b)", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <ClipboardIcon size={16} color="var(--primary-color, #4f46e5)" /> Subtasks ({form.subtasks?.length || 0})
               </span>
-              <p style={{ margin: "2px 0 0 0", fontSize: "11px", color: "#64748b" }}>
+              <p style={{ margin: "2px 0 0 0", fontSize: "11px", color: "var(--text-muted, #64748b)" }}>
                 Break this task down into milestones or sub-items with start & end dates.
               </p>
             </div>
@@ -1408,7 +1375,7 @@ export default function Task({ isIssue = false }) {
               type="button"
               onClick={handleAddSubtaskToForm}
               style={{
-                background: "#4f46e5", color: "#fff", border: "none",
+                background: "var(--primary-color, #4f46e5)", color: "#fff", border: "none",
                 padding: "6px 12px", borderRadius: "6px", fontSize: "12px",
                 fontWeight: "700", cursor: "pointer"
               }}
@@ -1654,93 +1621,19 @@ export default function Task({ isIssue = false }) {
         </div>
       </FormModal>
 
-      {/* ================= DATA VIEW (LIST / KANBAN) ================= */}
-      {viewMode === "list" ? (
-        <DataTable
-          data={tasks}
-          columns={columns}
-          onView={(task) => setViewTask(task)}
-          onEdit={hasPermission("task_management", "update") ? edit : null}
-          onDelete={hasPermission("task_management", "delete") ? remove : null}
-          serverSide={true}
-          totalRecords={totalRecords}
-          serverCurrentPage={serverPage}
-          pageSize={serverPageSize}
-          onPageChange={(p) => setServerPage(p)}
-        />
-      ) : (
-        <div style={{ display: "flex", gap: "20px", overflowX: "auto", paddingBottom: "20px", marginTop: "20px" }}>
-          {statuses.map(s => {
-            const colTasks = tasks.filter(t => (t.status?._id || t.status) === s._id);
-            return (
-              <div
-                key={s._id}
-                onDragOver={e => e.preventDefault()}
-                onDrop={e => {
-                  e.preventDefault();
-                  const taskId = e.dataTransfer.getData("taskId");
-                  if (taskId) updateTaskField(taskId, "status", s._id);
-                }}
-                style={{
-                  minWidth: "320px", width: "320px", background: "var(--ui-surface)", borderRadius: "12px", border: "1px solid var(--ui-border)", padding: "16px", display: "flex", flexDirection: "column", height: "fit-content", minHeight: "60vh"
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                   <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "800", color: "var(--text-main)", textTransform: "uppercase", letterSpacing: "0.5px" }}>{s.name}</h3>
-                   <span style={{ background: "var(--ui-border)", color: "var(--text-main)", fontSize: "12px", fontWeight: "800", padding: "2px 8px", borderRadius: "12px" }}>{colTasks.length}</span>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px", flex: 1 }}>
-                  {colTasks.map(t => {
-                    const assignedList = Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : []);
-                    return (
-                      <div
-                        key={t._id}
-                        draggable={hasPermission("task_management", "update")}
-                        onDragStart={e => e.dataTransfer.setData("taskId", t._id)}
-                        style={{
-                          background: "var(--ui-bg)", padding: "16px", borderRadius: "10px", boxShadow: "var(--shadow-sm)", border: "1px solid var(--ui-border)", cursor: hasPermission("task_management", "update") ? "grab" : "default", transition: "transform 0.2s"
-                        }}
-                        onMouseEnter={e => { if(hasPermission("task_management", "update")) e.currentTarget.style.transform = "translateY(-2px)"; }}
-                        onMouseLeave={e => { if(hasPermission("task_management", "update")) e.currentTarget.style.transform = "translateY(0)"; }}
-                        onClick={() => hasPermission("task_management", "update") && edit(t)}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-                          <div style={{ fontWeight: "700", fontSize: "14px", color: "var(--text-main)", lineHeight: "1.4" }}>{t.title}</div>
-                        </div>
-                        <div style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "14px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: "1.5" }}>{t.description}</div>
-                        
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                           <div style={{ display: "flex" }}>
-                             {assignedList.map((user, idx) => {
-                               const u = typeof user === 'object' ? user : staff.find(s => s._id === user);
-                               if (!u) return null;
-                               return (
-                                 <div key={idx} title={u.name} style={{ 
-                                   width: "26px", height: "26px", borderRadius: "50%", 
-                                   background: "var(--primary-light)", color: "var(--primary-color)", 
-                                   display: "flex", alignItems: "center", justifyContent: "center", 
-                                   fontSize: "11px", fontWeight: "800", border: "1px solid #fff",
-                                   marginLeft: idx > 0 ? "-10px" : "0"
-                                 }}>
-                                   {u.name.charAt(0).toUpperCase()}
-                                 </div>
-                               );
-                             })}
-                             {assignedList.length === 0 && <div style={{ height: "26px" }} />}
-                           </div>
-                          {isIssue && t.priority && (
-                             <span style={{ fontSize: "10.5px", fontWeight: "800", padding: "4px 8px", borderRadius: "6px", background: priorityStyle(t.priority).bg, color: priorityStyle(t.priority).color }}>{t.priority}</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* ================= DATA VIEW (LIST) ================= */}
+      <DataTable
+        data={tasks}
+        columns={columns}
+        onView={(task) => setViewTask(task)}
+        onEdit={hasPermission("task_management", "update") ? edit : null}
+        onDelete={hasPermission("task_management", "delete") ? remove : null}
+        serverSide={true}
+        totalRecords={totalRecords}
+        serverCurrentPage={serverPage}
+        pageSize={serverPageSize}
+        onPageChange={(p) => setServerPage(p)}
+      />
 
       {
         tasks.length === 0 && (
@@ -1771,17 +1664,17 @@ export default function Task({ isIssue = false }) {
           background: "rgba(15, 23, 42, 0.6)", display: "flex", alignItems: "center", justifyContent: "center",
           zIndex: 2000, padding: "20px"
         }}>
-          <div style={{ background: "#fff", borderRadius: "16px", width: "100%", maxWidth: "460px", padding: "24px", boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}>
-            <h3 style={{ fontSize: "18px", fontWeight: "800", color: "#1e293b", margin: "0 0 4px 0" }}>
+          <div style={{ background: "var(--ui-surface, #fff)", border: "1px solid var(--ui-border, #e2e8f0)", borderRadius: "16px", width: "100%", maxWidth: "460px", padding: "24px", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: "800", color: "var(--text-main, #1e293b)", margin: "0 0 4px 0" }}>
               + Add Subtask
             </h3>
-            <p style={{ fontSize: "12px", color: "#64748b", marginBottom: "16px" }}>
-              For Task: <span style={{ fontWeight: "700", color: "#4f46e5" }}>{quickSubtaskModal.taskTitle}</span>
+            <p style={{ fontSize: "12px", color: "var(--text-muted, #64748b)", marginBottom: "16px" }}>
+              For Task: <span style={{ fontWeight: "700", color: "var(--primary-color, #4f46e5)" }}>{quickSubtaskModal.taskTitle}</span>
             </p>
 
             <form onSubmit={handleQuickAddSubtask}>
               <div style={{ marginBottom: "12px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#334155", display: "block", marginBottom: "4px" }}>
+                <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-main, #334155)", display: "block", marginBottom: "4px" }}>
                   Subtask Title <span style={{ color: "red" }}>*</span>
                 </label>
                 <input
@@ -1797,7 +1690,7 @@ export default function Task({ isIssue = false }) {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
                 <div>
-                  <label style={{ fontSize: "12px", fontWeight: "700", color: "#334155", display: "block", marginBottom: "4px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-main, #334155)", display: "block", marginBottom: "4px" }}>
                     Start Date
                   </label>
                   <input
@@ -1809,7 +1702,7 @@ export default function Task({ isIssue = false }) {
                 </div>
 
                 <div>
-                  <label style={{ fontSize: "12px", fontWeight: "700", color: "#334155", display: "block", marginBottom: "4px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-main, #334155)", display: "block", marginBottom: "4px" }}>
                     End Date
                   </label>
                   <input
@@ -1822,7 +1715,7 @@ export default function Task({ isIssue = false }) {
               </div>
 
               <div style={{ marginBottom: "20px" }}>
-                <label style={{ fontSize: "12px", fontWeight: "700", color: "#334155", display: "block", marginBottom: "4px" }}>
+                <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-main, #334155)", display: "block", marginBottom: "4px" }}>
                   Status
                 </label>
                 <select
@@ -1841,13 +1734,13 @@ export default function Task({ isIssue = false }) {
                 <button
                   type="button"
                   onClick={() => setQuickSubtaskModal({ show: false, taskId: null, taskTitle: "", title: "", startDate: "", endDate: "", status: "Pending" })}
-                  style={{ padding: "8px 16px", background: "#f1f5f9", border: "none", borderRadius: "8px", fontWeight: "700", cursor: "pointer" }}
+                  style={{ padding: "8px 16px", background: "var(--ui-bg, #f1f5f9)", color: "var(--text-main, #334155)", border: "1px solid var(--ui-border, #cbd5e1)", borderRadius: "8px", fontWeight: "700", cursor: "pointer" }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  style={{ padding: "8px 20px", background: "#4f46e5", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", cursor: "pointer" }}
+                  style={{ padding: "8px 20px", background: "var(--primary-color, #4f46e5)", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", cursor: "pointer" }}
                 >
                   Save Subtask
                 </button>
@@ -1860,22 +1753,22 @@ export default function Task({ isIssue = false }) {
       {/* QUICK VIEW TASK MODAL */}
       {viewTask && (
         <div style={{
-          position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.6)",
+          position: "fixed", inset: 0, background: "rgba(15, 23, 42, 0.75)",
           backdropFilter: "blur(4px)", display: "flex", alignItems: "center",
           justifyContent: "center", zIndex: 9999, padding: "20px"
         }}>
           <div style={{
-            background: "#fff", borderRadius: "16px", width: "100%", maxWidth: "600px",
-            maxHeight: "90vh", overflowY: "auto", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
-            padding: "24px", position: "relative"
+            background: "var(--ui-surface, #fff)", borderRadius: "16px", width: "100%", maxWidth: "600px",
+            maxHeight: "90vh", overflowY: "auto", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
+            padding: "24px", position: "relative", border: "1px solid var(--ui-border, #e2e8f0)"
           }}>
             <button
               onClick={() => setViewTask(null)}
               style={{
-                position: "absolute", top: "18px", right: "18px", background: "#f1f5f9",
+                position: "absolute", top: "18px", right: "18px", background: "var(--ui-bg, #f1f5f9)",
                 border: "none", width: "32px", height: "32px", borderRadius: "50%",
                 cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                color: "#64748b"
+                color: "var(--text-muted, #64748b)"
               }}
             >
               <CloseIcon size={16} />
@@ -1885,41 +1778,41 @@ export default function Task({ isIssue = false }) {
               <span style={{
                 fontSize: "11px", fontWeight: "800", textTransform: "uppercase",
                 padding: "3px 8px", borderRadius: "6px",
-                background: viewTask.priority ? priorityStyle(viewTask.priority).bg : "#e0e7ff",
-                color: viewTask.priority ? priorityStyle(viewTask.priority).color : "#4338ca"
+                background: viewTask.priority ? priorityStyle(viewTask.priority).bg : "rgba(99, 102, 241, 0.15)",
+                color: viewTask.priority ? priorityStyle(viewTask.priority).color : "var(--primary-color, #4338ca)"
               }}>
                 {viewTask.priority || "Task"}
               </span>
               {viewTask.project?.name && (
-                <span style={{ fontSize: "12px", color: "#6366f1", fontWeight: "600", display: "inline-flex", alignItems: "center" }}>
-                  <FolderIcon size={13} color="#6366f1" style={{ marginRight: "4px" }} />
+                <span style={{ fontSize: "12px", color: "var(--primary-color, #6366f1)", fontWeight: "600", display: "inline-flex", alignItems: "center" }}>
+                  <FolderIcon size={13} color="var(--primary-color, #6366f1)" style={{ marginRight: "4px" }} />
                   {viewTask.project.name}
                 </span>
               )}
             </div>
 
-            <h2 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", marginBottom: "14px" }}>
+            <h2 style={{ fontSize: "20px", fontWeight: "800", color: "var(--text-main, #0f172a)", marginBottom: "14px" }}>
               {viewTask.title}
             </h2>
 
-            <div style={{ background: "#f8fafc", padding: "14px", borderRadius: "10px", marginBottom: "18px", border: "1px solid #e2e8f0" }}>
-              <div style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", marginBottom: "6px", textTransform: "uppercase" }}>Description</div>
-              <p style={{ margin: 0, fontSize: "14px", color: "#334155", lineHeight: "1.6", whiteSpace: "pre-wrap" }}>
+            <div style={{ background: "var(--ui-bg, #f8fafc)", padding: "14px", borderRadius: "10px", marginBottom: "18px", border: "1px solid var(--ui-border, #e2e8f0)" }}>
+              <div style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted, #64748b)", marginBottom: "6px", textTransform: "uppercase" }}>Description</div>
+              <p style={{ margin: 0, fontSize: "14px", color: "var(--text-main, #334155)", lineHeight: "1.6", whiteSpace: "pre-wrap" }}>
                 {viewTask.description || "No description provided."}
               </p>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "18px" }}>
-              <div style={{ background: "#fff", border: "1px solid #e2e8f0", padding: "12px", borderRadius: "8px" }}>
-                <div style={{ fontSize: "11px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Timeline</div>
-                <div style={{ fontSize: "13px", fontWeight: "600", color: "#1e293b", marginTop: "4px" }}>
+              <div style={{ background: "var(--ui-surface, #fff)", border: "1px solid var(--ui-border, #e2e8f0)", padding: "12px", borderRadius: "8px" }}>
+                <div style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-muted, #64748b)", textTransform: "uppercase" }}>Timeline</div>
+                <div style={{ fontSize: "13px", fontWeight: "600", color: "var(--text-main, #1e293b)", marginTop: "4px" }}>
                   {viewTask.startDate ? new Date(viewTask.startDate).toLocaleDateString('en-GB') : "—"} → {viewTask.endDate || viewTask.calculatedEndDate ? new Date(viewTask.endDate || viewTask.calculatedEndDate).toLocaleDateString('en-GB') : "—"}
                 </div>
               </div>
 
-              <div style={{ background: "#fff", border: "1px solid #e2e8f0", padding: "12px", borderRadius: "8px" }}>
-                <div style={{ fontSize: "11px", fontWeight: "700", color: "#64748b", textTransform: "uppercase" }}>Status</div>
-                <div style={{ fontSize: "13px", fontWeight: "700", color: "#4f46e5", marginTop: "4px" }}>
+              <div style={{ background: "var(--ui-surface, #fff)", border: "1px solid var(--ui-border, #e2e8f0)", padding: "12px", borderRadius: "8px" }}>
+                <div style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-muted, #64748b)", textTransform: "uppercase" }}>Status</div>
+                <div style={{ fontSize: "13px", fontWeight: "700", color: "var(--primary-color, #4f46e5)", marginTop: "4px" }}>
                   {viewTask.status?.name || viewTask.status || "Pending"}
                 </div>
               </div>
@@ -1928,14 +1821,14 @@ export default function Task({ isIssue = false }) {
             {/* Subtasks */}
             {Array.isArray(viewTask.subtasks) && viewTask.subtasks.length > 0 && (
               <div style={{ marginBottom: "18px" }}>
-                <div style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", marginBottom: "8px", textTransform: "uppercase" }}>
+                <div style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted, #64748b)", marginBottom: "8px", textTransform: "uppercase" }}>
                   Subtasks ({viewTask.subtasks.length})
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                   {viewTask.subtasks.map((st, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#f8fafc", borderRadius: "6px", border: "1px solid #e2e8f0" }}>
-                      <span style={{ fontSize: "13px", color: "#1e293b", fontWeight: "600" }}>↳ {st.title}</span>
-                      <span style={{ fontSize: "11px", fontWeight: "700", padding: "2px 8px", borderRadius: "10px", background: st.status === 'Complete' ? '#dcfce7' : '#fef3c7', color: st.status === 'Complete' ? '#15803d' : '#b45309' }}>
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "var(--ui-bg, #f8fafc)", borderRadius: "6px", border: "1px solid var(--ui-border, #e2e8f0)" }}>
+                      <span style={{ fontSize: "13px", color: "var(--text-main, #1e293b)", fontWeight: "600" }}>↳ {st.title}</span>
+                      <span style={{ fontSize: "11px", fontWeight: "700", padding: "2px 8px", borderRadius: "10px", background: st.status === 'Complete' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)', color: st.status === 'Complete' ? '#10b981' : '#f59e0b' }}>
                         {st.status || "Pending"}
                       </span>
                     </div>
@@ -1947,7 +1840,7 @@ export default function Task({ isIssue = false }) {
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px" }}>
               <button
                 onClick={() => setViewTask(null)}
-                style={{ padding: "8px 18px", background: "#4f46e5", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", cursor: "pointer" }}
+                style={{ padding: "8px 18px", background: "var(--primary-color, #4f46e5)", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", cursor: "pointer" }}
               >
                 Close
               </button>

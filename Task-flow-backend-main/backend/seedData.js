@@ -81,7 +81,6 @@ async function seedDummyData() {
 
     const devPermissions = [
       { name: "Task Management", value: "task_management", all: false, create: false, read: true, update: true, delete: false },
-      { name: "Issue Management", value: "issue", all: false, create: false, read: true, update: true, delete: false },
       { name: "Project Management", value: "project_management", all: false, create: false, read: true, update: false, delete: false },
       { name: "View Dashboard", value: "view_dashboard", all: true, create: true, read: true, update: true, delete: true },
       { name: "Document Management", value: "document", all: false, create: false, read: true, update: false, delete: false }
@@ -359,102 +358,12 @@ async function seedDummyData() {
     }
     console.log("✅ QA Bugs created");
 
-    // 8. Seed Attendance for today only if not already present
+    // 8. Seed Attendance: do not pre-populate today so employees start clean with Clock In option
     const todayStr = new Date().toISOString().slice(0, 10);
-    for (let i = 0; i < createdUsers.length; i++) {
-      const u = createdUsers[i];
-      const [existingAtt] = await pool.query(
-        "SELECT id FROM attendance WHERE (user_id = ? OR user_email = ?) AND date = ?",
-        [u._id.toString(), u.email, todayStr]
-      );
-      if (existingAtt.length === 0) {
-        const clockIn = new Date();
-        clockIn.setHours(9, 30 + i * 5, 0);
-        const clockOut = new Date();
-        clockOut.setHours(18, 30, 0);
+    console.log("✅ Attendance ready for employee clock-in");
 
-        await pool.query(
-          `INSERT INTO attendance (id, user_id, user_name, user_email, date, clock_in, clock_out, work_mode, total_hours, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 'Office', 8.5, 'Present')
-           ON DUPLICATE KEY UPDATE total_hours=VALUES(total_hours)`,
-          [`att_seed_${u._id}`, u._id.toString(), u.name, u.email, todayStr, clockIn, clockOut]
-        );
-      }
-    }
-    console.log("✅ Attendance checked/seeded for employees");
-
-    // 9. Seed Sample Daily Timesheets for the 2 Projects
-    const sampleTimesheets = [
-      {
-        user: createdUsers[0], // Rahul
-        project: createdProjects[0],
-        task: createdTasks[0],
-        subtaskTitle: "Setup Google OAuth credentials & Consent screen",
-        hours: 4.5,
-        taskStatus: "Complete",
-        desc: "Configured Google Console client credentials and JWT callback validation."
-      },
-      {
-        user: createdUsers[0], // Rahul
-        project: createdProjects[0],
-        task: createdTasks[0],
-        subtaskTitle: "Implement Apple ID private key sign-in endpoint",
-        hours: 3.5,
-        taskStatus: "In Process",
-        desc: "Integrated Apple token endpoint and verified p8 private key signature."
-      },
-      {
-        user: createdUsers[1], // Priya
-        project: createdProjects[1],
-        task: createdTasks[3],
-        subtaskTitle: "Stripe webhook payment_intent.succeeded listener",
-        hours: 8.0,
-        taskStatus: "Complete",
-        desc: "Implemented Stripe webhook idempotency check and database order update."
-      },
-      {
-        user: createdUsers[2], // Amit
-        project: createdProjects[0],
-        task: createdTasks[1],
-        subtaskTitle: "Android BiometricPrompt API hardware crypto check",
-        hours: 8.0,
-        taskStatus: "In Process",
-        desc: "Tested biometric prompt and cryptographic signature generation."
-      },
-      {
-        user: createdUsers[3], // Sneha
-        project: createdProjects[1],
-        task: createdTasks[2],
-        subtaskTitle: "Figma UI prototype for Desktop checkout flow",
-        hours: 8.0,
-        taskStatus: "Complete",
-        desc: "Designed checkout summary card, promo code pill and payment option radios in Figma."
-      },
-      {
-        user: createdUsers[4], // Vikram
-        project: createdProjects[1],
-        task: createdTasks[4],
-        subtaskTitle: "Redis cluster setup for session & cart store",
-        hours: 8.0,
-        taskStatus: "Complete",
-        desc: "Configured Redis cluster master-replica replication and sentinel failover."
-      }
-    ];
-
-    for (let idx = 0; idx < sampleTimesheets.length; idx++) {
-      const ts = sampleTimesheets[idx];
-      const taskId = ts.task?._id?.toString() || null;
-      const taskTitle = ts.task?.title || "Project Development";
-      const subtaskId = ts.task?.subtasks?.[0]?._id?.toString() || null;
-
-      await pool.query(
-        `INSERT INTO timesheets (id, user_id, user_name, user_email, project_id, project_name, task_id, task_title, subtask_id, subtask_title, date, hours, description, is_billable, task_status, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'Submitted')
-         ON DUPLICATE KEY UPDATE hours=VALUES(hours), description=VALUES(description), subtask_title=VALUES(subtask_title), task_status=VALUES(task_status)`,
-        [`ts_seed_${idx}`, ts.user._id.toString(), ts.user.name, ts.user.email, ts.project._id.toString(), ts.project.name, taskId, taskTitle, subtaskId, ts.subtaskTitle, todayStr, ts.hours, ts.desc, ts.taskStatus]
-      );
-    }
-    console.log("✅ Timesheets seeded for employees with subtasks and task_status");
+    // 9. Timesheets: do not pre-populate dummy timesheets for today so employee enters manually
+    console.log("✅ Timesheets ready for employee manual entry");
 
     console.log("🎉 ALL DUMMY DATA SEEDED SUCCESSFULLY! (2 Projects, 5 Developers)");
     return true;

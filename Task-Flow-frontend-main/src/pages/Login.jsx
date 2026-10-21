@@ -93,34 +93,35 @@ export default function Login() {
                     justifyContent: "center", zIndex: 9999
                 }}>
                     <div style={{
-                        maxWidth: "450px", width: "90%", background: "#fff",
+                        maxWidth: "450px", width: "90%", background: "var(--ui-surface, #fff)",
                         padding: "40px", borderRadius: "24px", position: "relative",
                         animation: "slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
-                        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)"
+                        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+                        border: "1px solid var(--ui-border, #e2e8f0)"
                     }}>
                         <button
                             type="button"
                             onClick={() => setShowLoginForm(false)}
                             style={{
                                 position: "absolute", top: "20px", right: "20px",
-                                background: "#f1f5f9", border: "none", width: "36px", height: "36px",
+                                background: "var(--ui-bg, #f1f5f9)", border: "none", width: "36px", height: "36px",
                                 borderRadius: "50%", cursor: "pointer",
-                                color: "#64748b", display: "flex", alignItems: "center", justifyContent: "center"
+                                color: "var(--text-muted, #64748b)", display: "flex", alignItems: "center", justifyContent: "center"
                             }}
                         ><CloseIcon size={16} /></button>
 
                         <div style={{ textAlign: "center", marginBottom: "30px", marginTop: "10px" }}>
                             <div style={{
-                                width: "60px", height: "60px", background: "#e0e7ff",
+                                width: "60px", height: "60px", background: "rgba(99, 102, 241, 0.15)",
                                 borderRadius: "18px", display: "flex", alignItems: "center",
-                                justifyContent: "center", margin: "0 auto 20px", color: "#4f46e5"
+                                justifyContent: "center", margin: "0 auto 20px", color: "var(--primary-color, #4f46e5)"
                             }}>
                                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                     <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
                                 </svg>
                             </div>
-                            <h2 style={{ fontSize: "28px", fontWeight: "900", color: "#0f172a" }}>Welcome Back</h2>
-                            <p style={{ color: "#64748b", marginTop: "8px", fontSize: "15px" }}>Login to access your workspace.</p>
+                            <h2 style={{ fontSize: "28px", fontWeight: "900", color: "var(--text-main, #0f172a)" }}>Welcome Back</h2>
+                            <p style={{ color: "var(--text-muted, #64748b)", marginTop: "8px", fontSize: "15px" }}>Login to access your workspace.</p>
                         </div>
 
                         <form onSubmit={login}>

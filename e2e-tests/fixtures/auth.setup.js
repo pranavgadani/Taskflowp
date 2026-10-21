@@ -1,4 +1,4 @@
-const { test as setup, expect } = require('@playwright/test');
+const { test: setup, expect } = require('@playwright/test');
 const { LoginPage } = require('../pages/LoginPage');
 const path = require('path');
 const fs = require('fs');

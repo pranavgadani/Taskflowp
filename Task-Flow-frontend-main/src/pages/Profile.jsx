@@ -58,6 +58,11 @@ export default function Profile() {
         status: "Active"
     });
 
+    const [attSettings, setAttSettings] = useState({
+        monthly_late_instances: 3,
+        late_grace_minutes: 30
+    });
+
     useEffect(() => {
         fetchCompanyData();
     }, [user, selectedCompany]);
@@ -78,6 +83,15 @@ export default function Profile() {
                 setCompanyData(res.data);
                 setLogoPreview(res.data.appLogo || "");
             }
+            try {
+                const attRes = await API.get("/attendance/settings");
+                if (attRes.data) {
+                    setAttSettings({
+                        monthly_late_instances: attRes.data.monthly_late_instances ?? 3,
+                        late_grace_minutes: attRes.data.late_grace_minutes ?? 30
+                    });
+                }
+            } catch (_) {}
         } catch (err) {
             console.error("Error fetching settings:", err);
         }
@@ -101,8 +115,11 @@ export default function Profile() {
             if (logoFile) formData.append("appLogo", logoFile);
             const companyId = selectedCompany?._id;
             const url = companyId ? `/staff/company/settings?companyId=${companyId}` : "/staff/company/settings";
-            await API.put(url, formData, { headers: { "Content-Type": "multipart/form-data" } });
-            showToast("Company updated successfully!");
+            await Promise.all([
+                API.put(url, formData, { headers: { "Content-Type": "multipart/form-data" } }),
+                API.put("/attendance/settings", attSettings)
+            ]);
+            showToast("Company & Attendance settings updated successfully!");
             fetchCompanyData();
         } catch (err) {
             showToast(err.response?.data?.error || "Update failed", "error");
@@ -326,16 +343,37 @@ export default function Profile() {
                 {/* ─── TAB 2: OPERATIONAL SETTINGS (ADMIN ONLY) ─────────────── */}
                 {activeTab === "settings" && isOwnerOrAdmin && (
                     <form onSubmit={handleUpdateCompany}>
-                        <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '24px', color: 'var(--text-main)' }}>Operating Hours</h3>
+                        <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '12px', color: 'var(--text-main)' }}>Late Arrival & Instance Policy</h3>
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                            Configure the monthly late arrival allowances and grace period. Operating shift hours and break durations are dynamically configured under the <strong>Attendance &gt; Schedules &amp; Breaks</strong> module.
+                        </p>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "40px" }}>
-                            <TextInput label="Opening Time" type="time" value={companyData.workingHours?.start || "09:00"} onChange={e => setCompanyData({...companyData, workingHours:{...companyData.workingHours, start: e.target.value}})} />
-                            <TextInput label="Closing Time" type="time" value={companyData.workingHours?.end || "18:00"} onChange={e => setCompanyData({...companyData, workingHours:{...companyData.workingHours, end: e.target.value}})} />
-                        </div>
-
-                        <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '24px', color: 'var(--text-main)', marginTop: '40px' }}>Break Hours</h3>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "40px" }}>
-                            <TextInput label="Break Start" type="time" value={companyData.breakTime?.start || "13:00"} onChange={e => setCompanyData({...companyData, breakTime:{...companyData.breakTime, start: e.target.value}})} />
-                            <TextInput label="Break End" type="time" value={companyData.breakTime?.end || "14:00"} onChange={e => setCompanyData({...companyData, breakTime:{...companyData.breakTime, end: e.target.value}})} />
+                            <div>
+                                <label style={{ display: "block", fontSize: "13px", fontWeight: "700", color: "var(--text-main)", marginBottom: "6px" }}>Monthly Late Instances Limit (Count)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="30"
+                                    value={attSettings.monthly_late_instances}
+                                    onChange={e => setAttSettings({ ...attSettings, monthly_late_instances: parseInt(e.target.value) || 0 })}
+                                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid var(--ui-border)", background: "var(--ui-surface)", color: "var(--text-main)", boxSizing: "border-box" }}
+                                    placeholder="e.g. 3"
+                                />
+                                <span style={{ fontSize: "11px", color: "var(--text-muted)", display: "block", marginTop: "4px" }}>Max allowed late arrivals per employee per month (e.g. 3 instances)</span>
+                            </div>
+                            <div>
+                                <label style={{ display: "block", fontSize: "13px", fontWeight: "700", color: "var(--text-main)", marginBottom: "6px" }}>Late Grace Time (Minutes)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="180"
+                                    value={attSettings.late_grace_minutes}
+                                    onChange={e => setAttSettings({ ...attSettings, late_grace_minutes: parseInt(e.target.value) || 0 })}
+                                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid var(--ui-border)", background: "var(--ui-surface)", color: "var(--text-main)", boxSizing: "border-box" }}
+                                    placeholder="e.g. 30"
+                                />
+                                <span style={{ fontSize: "11px", color: "var(--text-muted)", display: "block", marginTop: "4px" }}>Clocking in after Shift Start + Grace (e.g. 10:00 + 30m = 10:31 AM) counts as late instance</span>
+                            </div>
                         </div>
 
                         <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '24px', color: 'var(--text-main)' }}>Public Holidays</h3>

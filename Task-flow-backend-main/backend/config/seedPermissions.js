@@ -14,7 +14,6 @@ module.exports = async function seedDefaults() {
       { name: "Project Management", value: "project_management" },
       { name: "View Dashboard", value: "view_dashboard" },
       { name: "Company Management", value: "company_management" },
-      { name: "Issue Management", value: "issue" },
       { name: "Document Management", value: "document" },
       { name: "Attendance Management", value: "attendance_management" },
       { name: "Leave Management", value: "leave_management" },

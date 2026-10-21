@@ -32,7 +32,8 @@ export default function Staff() {
     name: "",
     email: "",
     phone: "",
-    status: "",
+    password: "",
+    status: "Active",
     role: "",
   });
 
@@ -127,6 +128,16 @@ export default function Staff() {
       return;
     }
 
+    if (!editId && (!form.password || form.password.trim().length < 6)) {
+      showToast("Password is required (minimum 6 characters)", "error");
+      return;
+    }
+
+    if (editId && form.password && form.password.trim().length < 6) {
+      showToast("Password must be at least 6 characters", "error");
+      return;
+    }
+
     try {
       if (editId) {
         const originalStaff = staff.find(s => s._id === editId);
@@ -136,8 +147,9 @@ export default function Staff() {
           const isSamePhone = String(originalStaff.phone || "").trim() === String(form.phone || "").trim();
           const isSameStatus = originalStaff.status === form.status;
           const isSameRole = (originalStaff.role?._id || originalStaff.role || "") === form.role;
+          const hasNoPasswordChange = !form.password || !form.password.trim();
 
-          if (isSameName && isSameEmail && isSamePhone && isSameStatus && isSameRole) {
+          if (isSameName && isSameEmail && isSamePhone && isSameStatus && isSameRole && hasNoPasswordChange) {
             showToast("No changes detected.", "info");
             resetForm();
             setShowForm(false);
@@ -172,7 +184,8 @@ export default function Staff() {
       name: "",
       email: "",
       phone: "",
-      status: "",
+      password: "",
+      status: "Active",
       role: "",
     });
     setEditId(null);
@@ -186,7 +199,8 @@ export default function Staff() {
     }
     setForm({
       ...item,
-      role: item.role ? item.role._id : ""
+      password: "",
+      role: item.role ? (item.role._id || item.role.id || item.role) : ""
     });
     setEditId(item._id);
     setShowForm(true);
@@ -287,6 +301,15 @@ export default function Staff() {
               onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '') })}
               maxLength={10}
               required
+            />
+
+            <TextInput
+              label={editId ? "Password (Leave blank to keep current)" : "Password"}
+              type="password"
+              placeholder={editId ? "Enter new password (optional)" : "Enter password (min 6 characters)"}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              required={!editId}
             />
 
             <SelectField

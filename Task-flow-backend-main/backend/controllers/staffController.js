@@ -1,64 +1,40 @@
-const Staff = require("../models/Staff");
 const bcrypt = require("bcryptjs");
-const { generatePassword, sendMail } = require("../config/mail");
-
-exports.createStaff = async (req, res) => {
-  try {
-    // Generate random password for new staff
-    const password = generatePassword();
-    const hash = await bcrypt.hash(password, 10);
-
-    // Find role based on position
-    const Role = require("../models/Role");
-    let role;
-    
-    switch(req.body.position) {
-      case "Admin":
-      case "Super Admin":
-        role = await Role.findOne({ name: "Super Admin" });
-        break;
-      case "Manager":
-        role = await Role.findOne({ name: "Manager" });
-        break;
-      case "Staff":
-      default:
-        role = await Role.findOne({ name: "Staff" });
-        break;
-    }
-
-    // Create staff with hashed password and role
-    const staff = new Staff({
-      ...req.body,
-      password: hash,
-      role: role ? role._id : null
-    });
-    await staff.save();
-
-    console.log(`👤 STAFF CREATED: ${staff.name} (${staff.email})`);
-    console.log(`📋 Position: ${staff.position}`);
-    console.log(`🔐 Role Assigned: ${role ? role.name : 'No role'}`);
-    console.log(`📧 Sending emails...`);
-
-    // Send email with login details
-    await sendMail(staff.email, staff.name, staff.position || "Staff", password);
-
-    res.json({ 
-      message: "Staff Created and email sent", 
-      staff,
-      assignedRole: role ? role.name : null,
-      tempPassword: password // Only for testing, remove in production
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+const { pool } = require("../config/mysqlDb");
 
 // GET current user profile
 exports.getProfile = async (req, res) => {
   try {
-    const staff = await Staff.findById(req.user._id).populate("role").populate("companyId");
-    if (!staff) return res.status(404).json({ error: "User not found" });
-    res.json(staff);
+    const userId = req.user._id || req.user.id;
+    const [rows] = await pool.query(
+      `SELECT s.id as _id, s.id, s.name, s.email, s.phone, s.position, s.status, s.image,
+              r.id as role_id, r.name as role_name
+       FROM staff s
+       LEFT JOIN roles r ON s.role = r.id OR s.role = r.name
+       WHERE s.id = ? LIMIT 1`,
+      [userId]
+    );
+
+    if (!rows || rows.length === 0) return res.status(404).json({ error: "User not found" });
+
+    const r = rows[0];
+    res.json({
+      _id: r.id,
+      id: r.id,
+      name: r.name,
+      email: r.email,
+      phone: r.phone,
+      position: r.position,
+      status: r.status,
+      image: r.image || "",
+      role: {
+        _id: r.role_id || "role_staff",
+        name: r.role_name || "Staff"
+      },
+      companyId: {
+        _id: "default_company",
+        companyName: "Padhya Soft"
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -67,23 +43,27 @@ exports.getProfile = async (req, res) => {
 // PUT update current user profile
 exports.updateProfile = async (req, res) => {
   try {
+    const userId = req.user._id || req.user.id;
     const { name, phone, password } = req.body;
-    const staff = await Staff.findById(req.user._id);
 
-    if (!staff) return res.status(404).json({ error: "User not found" });
-
-    if (name) staff.name = name;
-    if (phone) staff.phone = phone;
-    
     if (password && password.length >= 6) {
       const salt = await bcrypt.genSalt(10);
-      staff.password = await bcrypt.hash(password, salt);
+      const hash = await bcrypt.hash(password, salt);
+      await pool.query(
+        "UPDATE staff SET name = COALESCE(?, name), phone = COALESCE(?, phone), password = ? WHERE id = ?",
+        [name, phone, hash, userId]
+      );
     } else if (password) {
       return res.status(400).json({ error: "Password must be at least 6 characters" });
+    } else {
+      await pool.query(
+        "UPDATE staff SET name = COALESCE(?, name), phone = COALESCE(?, phone) WHERE id = ?",
+        [name, phone, userId]
+      );
     }
 
-    await staff.save();
-    res.json({ message: "Profile updated successfully", staff });
+    const [rows] = await pool.query("SELECT id as _id, id, name, email, phone, position, status, image FROM staff WHERE id = ?", [userId]);
+    res.json({ message: "Profile updated successfully", staff: rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
